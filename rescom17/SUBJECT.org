@@ -360,8 +360,8 @@ Note in particular the status of your VM. This status will go from
 ~ACTIVE~: your VM is running. The status could also be ~ERROR~ if you
 are experiencing hard times with your infrastructure.
 
-With the previous ~openstack sever create~ command, the VM boot with a
-private IP. Private IPs are used for communication between VMs,
+With the previous ~openstack server create~ command, the VM boot with
+a private IP. Private IPs are used for communication between VMs,
 meaning you cannot ping your VM from the lab machine. Network lovers
 will find a challenge here: try to ping the VM from the lab machine.
 For the others, you have to manually affect a floating IP to your
