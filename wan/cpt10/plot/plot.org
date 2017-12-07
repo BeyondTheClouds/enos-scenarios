@@ -10,7 +10,7 @@
 # Doc: https://org-babel.readthedocs.io/en/latest
 
 * Throughput Expectations
-See [[http://enos.irisa.fr/html/wan/cpt10/][cpt10-lat*-los0/*.stats]] for raw measures.
+See [[http://enos.irisa.fr/html/wan_g5k/cpt10/][cpt10-lat*-los0/*.stats]] for raw measures.
 
 #+NAME: throughput-data
 #+CAPTION: Throughput Expectations
@@ -50,7 +50,7 @@ img = plt.figure()
 # Make plot
 plt.plot(latencies, throughputs, '--',
          marker='+', label='Throughput Expectations',
-         linewidth=3, markersize=15, color='#FF5722')
+         linewidth=3, markersize=15, color='#FF2B21')
 plt.xlabel("RTT Latency (ms)")
 plt.ylabel("Throughput (Mbits/s)")
 plt.legend(loc='upper right')
@@ -75,7 +75,6 @@ Experimentation done during the test are:
 |------------------------------+----------------------------------------+----------------|
 | Boot & Associate Floating IP | boot-and-associate-floating-ip.yaml    | Rally Nova     |
 | Boot & Delete Server         | boot-and-delete.yaml                   | Rally Nova     |
-| Boot & Add Sec. Group        | boot-server-and-add-secgroup.yaml      | Rally Nova     |
 | Pause & Unpause server       | pause-and-unpause.yaml                 | Rally Nova     |
 | Create & Delete Networks     | create-and-delete-networks.yaml        | Rally Neutron  |
 | Create & Delete Ports        | create-and-delete-ports.yaml           | Rally Neutron  |
@@ -85,6 +84,7 @@ Experimentation done during the test are:
 | L2 Full                      | openstack_full_l2                      | Shaker Neutron |
 | L3 Dense East/West           | openstack_dense_l3_east_west           | Shaker Neutron |
 | L3 Full East/West            | openstack_full_l3_east_west            | Shaker Neutron |
+# | Boot & Add Sec. Group        | boot-server-and-add-secgroup.yaml      | Rally Nova     |
 
 ** Utils                                                           :noexport:
 #+NAME: utils-req
@@ -175,7 +175,6 @@ org_print([[perf[0]] + map(lambda p: ("%05.2f, %05.2f, %d" % p), perf[1:]) for p
 |------------------------------+-----------------+-----------------+-----------------+-----------------+-----------------|
 | Boot & Associate Floating IP | 15.48, 02.67, 0 | 17.20, 01.98, 0 | 18.26, 02.35, 0 | 20.63, 02.08, 0 | 25.61, 02.20, 0 |
 | Boot & Delete Server         | 15.13, 01.07, 0 | 17.85, 01.53, 0 | 20.34, 00.73, 5 | 23.77, 00.97, 5 | 30.86, 03.26, 0 |
-| Boot & Add Sec. Group        | 65.83, 02.03, 0 | 65.55, 01.87, 0 | 66.00, 02.70, 0 | 68.46, 02.02, 0 | 73.57, 03.47, 0 |
 | Pause & Unpause server       | 17.25, 00.96, 0 | 19.46, 01.28, 0 | 22.17, 00.90, 0 | 24.62, 01.00, 0 | 28.86, 01.24, 0 |
 | Create & Delete Networks     | 01.34, 00.13, 0 | 01.33, 00.10, 0 | 01.31, 00.13, 0 | 01.33, 00.13, 0 | 01.36, 00.13, 0 |
 | Create & Delete Ports        | 21.12, 00.64, 0 | 20.92, 00.58, 0 | 21.31, 00.54, 0 | 21.05, 00.76, 0 | 20.99, 00.60, 0 |
@@ -195,7 +194,7 @@ for p in filter(are_nova_perfs, perfs_cp):
            markersize=15)
 
 plt.xlabel("RTT Latency (ms)")
-plt.legend(loc='center left')
+plt.legend(loc='upper left')
 plt.ylabel("Compltetion Time (s)")
 
 img.savefig('latency-impact-cp-nova.png')
@@ -310,7 +309,6 @@ org_print([[perf[0]] + map(lambda p: ("%05.2f, %05.2f, %d" % p), perf[1:]) for p
 |------------------------------+-----------------+-----------------+-----------------+-----------------+-----------------|
 | Boot & Associate Floating IP | 15.61, 02.47, 0 | 17.20, 01.98, 0 | 17.98, 02.77, 0 | 19.70, 01.94, 0 | 23.66, 02.52, 0 |
 | Boot & Delete Server         | 16.62, 00.98, 0 | 16.42, 00.69, 0 | 18.50, 01.85, 0 | 21.63, 00.94, 0 | 25.95, 00.90, 0 |
-| Boot & Add Sec. Group        | 65.72, 02.04, 0 | 64.82, 02.96, 0 | 65.87, 03.01, 0 | 65.88, 01.87, 0 | 72.39, 03.21, 0 |
 | Pause & Unpause server       | 18.43, 01.11, 0 | 18.32, 00.85, 0 | 20.39, 01.37, 0 | 23.25, 01.22, 0 | 27.84, 01.93, 0 |
 | Create & Delete Networks     | 01.33, 00.13, 0 | 01.24, 00.15, 0 | 01.34, 00.11, 0 | 01.34, 00.12, 0 | 01.29, 00.13, 0 |
 | Create & Delete Ports        | 20.14, 00.84, 0 | 20.12, 01.10, 0 | 19.65, 00.92, 0 | 19.78, 01.09, 0 | 19.62, 01.07, 0 |
@@ -327,7 +325,7 @@ for p in filter(are_nova_perfs, perfs_cp):
            marker='+', label=exp_name(p), linewidth=3, markersize=15)
 
 plt.xlabel("RTT Latency (ms)")
-plt.legend(loc='center left')
+plt.legend(loc='upper left')
 plt.ylabel("Compltetion Time (s)")
 
 img.savefig('chameleon-latency-impact-cp-nova.png')
