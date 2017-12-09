@@ -1,0 +1,4 @@
+[submodule "tp-polytech/enos"]
+	path = tp-polytech/enos
+	url = https://github.com/rcherrueau/enos.git
+	branch = tp-polytech
