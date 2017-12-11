@@ -1,0 +1,23 @@
+#+TITLE: Rally Scenarios for EnOS
+#+DATE: <2017-12-11 Mon>
+
+This repository contains all rally scenarios reshaped for an execution from EnOS. Run them with:
+: enos bench --workload=workload-rally
+
+Edit ~./workload-rally/run.yml~ to activate/deactivate some scenarios.
+
+* Generation
+To generate this list of scenarios do:
+#+BEGIN_SRC sh
+curl https://codeload.github.com/openstack/rally/zip/master --output rally-master.zip
+unzip rally-master.zip
+mv rally-master/samples/tasks/scenarios workload-rally
+cd workload-rally
+find -name '*.json' -delete
+ag -l "times:" | xargs sed --regexp-extended --in-place --expression="s/times:.*$/times: {{times}}/g"
+ag -l "concurrency:" | xargs sed --regexp-extended --in-place --expression="s/concurrency:.*$/concurrency: {{concurrency}}/g"
+find -name '*.yaml' > run.yml
+# Finally, use your vim skill to prefix each line with `- file: `
+vim run.yml
+#+END_SRC
+

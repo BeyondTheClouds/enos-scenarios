@@ -1,0 +1,10 @@
+---
+  Dummy.openstack:
+    -
+      runner:
+        type: "constant"
+        times: {{times}}
+        concurrency: {{concurrency}}
+      sla:
+        failure_rate:
+          max: 0

@@ -1,0 +1,10 @@
+---
+  NovaAggregates.list_aggregates:
+    -
+      runner:
+        type: "constant"
+        concurrency: {{concurrency}}
+        times: {{times}}
+      sla:
+        failure_rate:
+          max: 0

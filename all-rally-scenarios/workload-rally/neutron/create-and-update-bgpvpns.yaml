@@ -1,0 +1,15 @@
+---
+  NeutronBGPVPN.create_and_update_bgpvpns:
+    -
+      args: {}
+      runner:
+        type: "constant"
+        times: {{times}}
+        concurrency: {{concurrency}}
+      context:
+        users:
+          tenants: 1
+          users_per_tenant: 1
+      sla:
+        failure_rate:
+          max: 0

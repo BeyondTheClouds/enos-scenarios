@@ -1,0 +1,14 @@
+---
+  Dummy.dummy_random_action:
+    -
+      args:
+        actions_num: 5
+        sleep_min: 0
+        sleep_max: 2
+      runner:
+        type: "constant"
+        times: {{times}}
+        concurrency: {{concurrency}}
+      sla:
+        failure_rate:
+          max: 0
