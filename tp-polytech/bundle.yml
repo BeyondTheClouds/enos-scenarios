@@ -14,7 +14,8 @@
       - python-dev
       - python-pip
       - python-virtualenv
-    sudo: true
+      - python-setuptools
+    become: true
 
   - name: Generate a new ssh key for kolla-ansible
     command: ssh-keygen -t rsa -P '' -f '/home/vagrant/.ssh/id_rsa'
@@ -27,11 +28,17 @@
       cat /home/vagrant/.ssh/id_rsa.pub >> /root/.ssh/authorized_keys
     args:
       creates: /root/.ssh/autorized_keys
-    sudo: true
+    become: true
 
-  - name: Give vagrant write access to /opt
-    file: path=/opt group=vagrant owner=vagrant
-    sudo: true
+  - name: Download cirros into /home/vagrant
+    get_url:
+      url: http://download.cirros-cloud.net/0.3.5/cirros-0.3.5-x86_64-disk.img
+      dest: /home/vagrant/cirros.qcow2
+
+  - name: Download debian-9 into /home/vagrant (see, https://cdimage.debian.org/cdimage/openstack/current-9/)
+    get_url:
+      url: https://cdimage.debian.org/cdimage/openstack/current-9/debian-9-openstack-amd64.qcow2
+      dest: /home/vagrant/debian-9.qcow2
 
   # - name: Download enos into /opt
   #   git:
@@ -47,10 +54,6 @@
   # - name: Copy local patch directoy into /opt/enos/
   #   copy: src=patch dest=/opt/enos
 
-  # - name: Download cirros into /opt/enos
-  #   get_url:
-  #     url: http://download.cirros-cloud.net/0.3.4/cirros-0.3.4-x86_64-disk.img
-  #     dest: /opt/enos/cirros.uec
 
   # - name: Download shaker-image into /opt/enos
   #   get_url:
@@ -63,20 +66,21 @@
   #     chdir: /opt/enos
 
   - name: Create a directory for the virtualenv
-    file: path=/opt/enos/venv state=directory
+    file: path=/home/vagrant/enos-venv state=directory
 
   - name: Install enos from source
     pip:
-      virtualenv: /opt/enos/venv
-      name: -e file:///
+      virtualenv: /home/vagrant/enos-venv
+      name: -e file:///home/vagrant/rsc/enos#egg=enos
 
-  - name: Source venv at user connection and make alias enos='python -m enos.enos'
+  - name: Source venv and admin-open at user connection
     blockinfile:
       name: ~/.profile
+      create: yes
       state: present
       block: |
-        alias enos="python -m enos.enos"
-        . /opt/enos/venv/bin/activate
+        . /home/vagrant/enos-venv/bin/activate
+        [ -f /home/vagrant/current/admin-openrc ] && . /home/vagrant/current/admin-openrc
 
   - name: Start of enos bootstrapping (i.e., enos deploy; enos destroy)
     debug:
@@ -86,26 +90,26 @@
 
   - name: Call enos deploy
     shell: |
-      . venv/bin/activate
-      python -m enos.enos deploy -f reservation.yaml 2>&1 > /tmp/enos-bootstrap.log
+      . /home/vagrant/enos-venv/bin/activate
+      enos deploy -f rsc/reservation.yml 2>&1 > /tmp/enos-bootstrap.log
     args:
-      chdir: /opt/enos/
+      chdir: /home/vagrant
       creates: /tmp/enos-deployed
 
-  - name: Call enos bench
-    shell: |
-      . venv/bin/activate
-      python -m enos.enos bench --workload=workload 2>&1 >> /tmp/enos-bootstrap.log
-    args:
-      chdir: /opt/enos/
-      creates: /tmp/enos-benched
+  # - name: Call enos bench
+  #   shell: |
+  #     . venv/bin/activate
+  #     python -m enos.enos bench --workload=workload 2>&1 >> /tmp/enos-bootstrap.log
+  #   args:
+  #     chdir: /opt/enos/
+  #     creates: /tmp/enos-benched
 
-  - name: Clean enos
-    shell: |
-      . venv/bin/activate
-      python -m enos.enos destroy 2>&1 >> /tmp/enos-bootstrap.log
-      rm -rf enos_201* current
-      sudo rm -rf /root/rally_home /root/shaker_home
-    args:
-      chdir: /opt/enos/
-      creates: /tmp/enos-destroyed
+  # - name: Clean enos
+  #   shell: |
+  #     . venv/bin/activate
+  #     python -m enos.enos destroy 2>&1 >> /tmp/enos-bootstrap.log
+  #     rm -rf enos_201* current
+  #     sudo rm -rf /root/rally_home /root/shaker_home
+  #   args:
+  #     chdir: /opt/enos/
+  #     creates: /tmp/enos-destroyed

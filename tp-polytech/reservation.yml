@@ -24,7 +24,7 @@ provider:
     start: 192.168.143.3
     end:  192.168.143.119
     cidr: 192.168.143.0/24
-    gateway: 192.168.143.1
+    gateway: 192.168.143.127
     dns: 8.8.8.8
     extra_ips:
       - 192.168.142.100
@@ -73,6 +73,11 @@ kolla:
   kolla_base_distro: "centos"
   kolla_install_type: "source"
   docker_namespace: "beyondtheclouds"
-  enable_heat: "no"
-  node_custom_config: "{{ cwd }}/patch"
+  node_custom_config: "{{ cwd }}/rsc/patch"
+  neutron_plugin_agent: "linuxbridge"
 
+  # Services
+  enable_trove: "no"
+  enable_designate: "no"
+  enable_octavia: "no"
+  enable_heat: "no"

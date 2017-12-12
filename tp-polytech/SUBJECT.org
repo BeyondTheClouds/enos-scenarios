@@ -1,8 +1,9 @@
-#+TITLE: Measure & Understand Specific
-#+TITLE: Configurations of OpenStack with EnOS
-#+SUBTITLE: RESCOM 2017, 2017-06-20
-#+AUTHOR: Ronan-Alexandre Cherrueau, Dimitri Pertin, Matthieu Simonin, Didier Iscovery
+#+TITLE: Operate Resources in Public and Private Clouds
+#+TITLE: Thanks to OpenStack
+#+SUBTITLE: The case of OPH -- Online Polytech Hosting
+#+AUTHOR: Ronan-Alexandre Cherrueau, Dimitri Pertin, Didier Iscovery
 #+EMAIL: {firstname.lastname}@inria.fr
+#+DATE: <2017-12-20 Wed>
 
 #+OPTIONS: ':t email:t toc:nil
 
@@ -10,34 +11,27 @@
 
 #+BEGIN_abstract
 OpenStack has become the de-facto solution to operate compute, network
-and storage resources in public and private clouds. However,
-developers and scientists are facing challenges when it comes to
-deploy and benchmark such a complex software stack. This lab aims at
-exploring EnOS[fn:enos-paper][fn:enos-code], a holistic framework
-leveraging containers to conduct easy and reproducible evaluations of
-different OpenStack configurations. In particular, EnOS helps you in
-deploying real OpenStack infrastructure, stressing it and getting
-feedback.
-
-In this lab, we are going to:
-- deploy and configure OpenStack using EnOS
-- operate this OpenStack to manage IaaS resources (e.g. boot VMs)
-- run some benchmarks to evaluate the deployment
-- monitor metrics and visualize them through Grafana
+and storage resources in public and private clouds. In this lab, we
+are going to:
+- Deploy and configure OpenStack using
+  EnOS[fn:enos-paper][fn:enos-code].
+- Operate this OpenStack to manage IaaS resources (e.g. boot VMs).
+- Start your OPH -- Online Polytech Hosting -- company that deploys
+  Wordpress as a Service.
+- Automatize all the stuff (i.e., manage your cloud from your couch!)
 #+END_abstract
 
 #+TOC: headlines 3
 
 * Table of Contents                                          :TOC@3:noexport:
- - [[#requirements-and-setup-to-be-done-before-the-lab][Requirements and Setup (TO BE DONE BEFORE THE LAB)]]
+ - [[#requirements-and-setup][Requirements and Setup]]
    - [[#environment][Environment]]
    - [[#setup-the-lab-vm][Setup the lab vm]]
      - [[#get-the-base-box][Get the base box]]
      - [[#prepare-the-lab-vm][Prepare the lab VM]]
      - [[#start-the-lab-vm][Start the lab VM]]
    - [[#validate-the-setup][Validate the setup]]
-   - [[#hotfix][Hotfix]]
- - [[#deploy-openstack-using-enos][Deploy OpenStack using EnOS]]
+ - [[#deploy-openstack-with-enos][Deploy OpenStack with EnOS]]
    - [[#the-enos-configuration-file][The EnOS configuration file]]
    - [[#deploy-openstack][Deploy OpenStack]]
    - [[#play-with-openstack][Play with OpenStack]]
@@ -53,51 +47,54 @@ In this lab, we are going to:
    - [[#run-dataplane-benchmarks-with-and-without-dvr][Run Dataplane Benchmarks with and without DVR]]
  - [[#footnotes][Footnotes]]
 
-* Requirements and Setup (TO BE DONE BEFORE THE LAB)
+* Requirements and Setup
 ** Environment
 To follow the lab you'll need :
-- VirtualBox 5.1.22 [fn:virtualbox-downloads]
-- Vagrant 1.9.5 or upper[fn:vagrant-downloads]
-- Rescom17 Vagrant box[fn:enos-box] (contains EnOS with all its
-  dependencies)
+- VirtualBox 5.2 or upper [fn:virtualbox-downloads]
+- Vagrant 2.0.1 or upper[fn:vagrant-downloads]
 
-The lab makes use of a pre-installed virtual machine (lab vm) where
-Enos is installed. Enos will then deploy OpenStack inside the lab-vm.
+The lab makes use of a pre-installed virtual machine (lab-vm) where
+EnOS[fn:enos-paper][fn:enos-code] is installed. EnOS is a holistic
+framework leveraging containers to conduct easy and reproducible
+evaluations of different OpenStack configurations. In particular, EnOS
+helps you in deploying real OpenStack infrastructure, stressing it and
+getting feedback. In the following, we gonna use EnOS to easily deploy
+OpenStack inside the lab-vm.
 
 The following depicts the status of the different components in play
 during the lab.
 
-#+BEGIN_SRC
+#+BEGIN_EXAMPLE
 +---------------------------------------+
 |        host machine (your laptop)     |
 |                                       |
 |                                       |
 |   +---------------------------+       |
 |   |   lab-vm machine (vagrant)|       |
-|   |     /opt/enos <- - - -  - - - - - - - - - -  EnOS sources & configuration files
+|   |     ~/rsc <- - - - - -  - - - - - - - - - -  EnOS sources & configuration files
 |   |                           |       |
 |   |  * docker container 1 +   |       |
 |   |  * docker container 2 +   |       |
 |   |  * ...                +- - - - - - - - - - - Docker container launched by
-|   |  * docker container n +   |       |          Enos (Openstack services/third-party
+|   |  * docker container n +   |       |          EnOS (Openstack services/third-party
 |   |                           |       |          services)
 |   +---------------------------+       |
 +---------------------------------------+
-#+END_SRC
+#+END_EXAMPLE
 
 #+BEGIN_NOTE
-In a normal use Enos will be installed on your local machine directly.
-Enos will also probably deploy OpenStack on a dedicated infrastructure
+In a normal use EnOS will be installed on your local machine directly.
+EnOS will also probably deploy OpenStack on a dedicated infrastructure
 (instead of a single VM).
 #+END_NOTE
 
-** Setup the lab vm
+** TODO Setup the lab vm
 *** Get the base box
 Download the Rescom17 Vagrant box[fn:enos-box] in your working
 directory.
-: host:~$ mkdir rescom17-enos
-: host:~$ cd rescom17-enos
-: host:~/rescom17-enos$ curl http://enos.irisa.fr/vagrant-box/rescom17.box -O
+: host:~$ mkdir oph-co
+: host:~$ cd oph-co
+: host:~/oph-co$ curl -O http://enos.irisa.fr/vagrant-box/rescom17.box
 
 #+BEGIN_NOTE
 The box contains EnOS together with all resources needed by EnOS to
@@ -110,22 +107,22 @@ While the box is downloading, you can proceed with the next section.
 *** Prepare the lab VM
 Create a ~Vagrantfile~ as the following (substitute <editor> with your
 favorite editor):
-: host:~/rescom17-enos$ <editor> Vagrantfile
+: host:~/oph-co$ <editor> Vagrantfile
 
 #+BEGIN_SRC ruby
-# rescom17-enos/Vagrantfile content
+# oph-co/Vagrantfile content
 Vagrant.configure("2") do |config|
   # Location of the VM image
   config.vm.box = "file://./rescom17.box"
 
   # Network configuration
-  config.vm.hostname = "enos-node"
+  config.vm.hostname = "lab-vm"
   # the lab vm is started with 2 extra network interfaces with
   # the specified ip addresses
   config.vm.network :private_network, ip: "192.168.142.127"
   config.vm.network :private_network, ip: "192.168.143.127"
 
-  # Synchronised `host:~/rescome-enos` with `enos-node:/vagrant_data`
+  # Synchronised `host:~/rescom-enos` with `lab-vm:/vagrant_data`
   config.vm.synced_folder "./", "/vagrant_data",
      owner: "vagrant",
      group: "vagrant"
@@ -145,19 +142,17 @@ can refer to the official documentation[fn:vagrantfile].
 
 *** Start the lab VM
 Start the lab VM :
-: host:~/rescom17-enos$ vagrant up
+: host:~/oph-co$ vagrant up -- provision
 
 SSH into the lab VM :
-: host:~/rescom17-enos$ vagrant ssh
+: host:~/oph-co$ vagrant ssh
 
 ** Validate the setup
-The EnOS tool is already installed in ~/opt/enos~. To be sure that
-everything is setup correctly, you can go into the EnOS directory and
-display the help message.
+The EnOS tool is already installed in =~/rsc/enos=. To be sure that
+everything is setup correctly, display the help message.
 #+BEGIN_EXAMPLE
-vagrant@enos-node:~$ cd /opt/enos
-vagrant@enos-node:/opt/enos$ enos --help
-Enos: Monitor and test your OpenStack.
+vagrant@lab-vm:~$ enos --help
+EnOS: Monitor and test your OpenStack.
 
 usage: enos <command> [<args> ...] [-e ENV|--env=ENV]
             [-h|--help] [-v|--version] [-s|--silent|--vv]
@@ -183,56 +178,41 @@ command.
 You can also check that all the docker images we gonna use in this lab
 are present.
 #+BEGIN_EXAMPLE
-vagrant@enos-node:/opt/enos$ sudo docker images
-REPOSITORY                                                TAG                 IMAGE ID            CREATED             SIZE
-rallyforge/rally                                          latest              6c33840eb5e5        15 hours ago        738MB
-beyondtheclouds/centos-source-neutron-metadata-agent      4.0.2               96f44560ddb6        3 days ago          908MB
-beyondtheclouds/centos-source-neutron-server              4.0.2               bf90f8539c4c        3 days ago          916MB
-beyondtheclouds/centos-source-neutron-l3-agent            4.0.2               998459d2136d        3 days ago          908MB
-beyondtheclouds/centos-source-neutron-openvswitch-agent   4.0.2               166ba04702bb        3 days ago          908MB
-beyondtheclouds/centos-source-nova-ssh                    4.0.2               d980f55afb0d        3 days ago          1.02GB
-beyondtheclouds/centos-source-nova-placement-api          4.0.2               808a5a589d56        3 days ago          1.05GB
-beyondtheclouds/centos-source-neutron-dhcp-agent          4.0.2               96fd7bd7375e        3 days ago          908MB
-beyondtheclouds/centos-source-nova-compute                4.0.2               46a29f2f59f1        3 days ago          1.22GB
-beyondtheclouds/centos-source-nova-api                    4.0.2               10f9aebfcfaf        3 days ago          1.05GB
-beyondtheclouds/centos-source-nova-novncproxy             4.0.2               5ac42aae9497        3 days ago          1GB
-beyondtheclouds/centos-source-horizon                     4.0.2               c89030bf54d6        3 days ago          1.01GB
-beyondtheclouds/centos-source-nova-conductor              4.0.2               bf50e2a938d4        3 days ago          977MB
-beyondtheclouds/centos-source-nova-scheduler              4.0.2               438fa8544a83        3 days ago          977MB
-beyondtheclouds/centos-source-keystone                    4.0.2               378be916b8d3        3 days ago          887MB
-beyondtheclouds/centos-source-glance-api                  4.0.2               9e0f82842f05        3 days ago          912MB
-beyondtheclouds/centos-source-nova-consoleauth            4.0.2               34dae42b1f27        3 days ago          977MB
-beyondtheclouds/centos-source-heat-api                    4.0.2               2f3137f67469        3 days ago          819MB
-beyondtheclouds/centos-source-glance-registry             4.0.2               377870a27630        3 days ago          855MB
-beyondtheclouds/centos-source-heat-engine                 4.0.2               c4e98703214b        3 days ago          819MB
-beyondtheclouds/centos-source-heat-api-cfn                4.0.2               43020b067fca        3 days ago          819MB
-beyondtheclouds/centos-source-fluentd                     4.0.2               7590104519d2        3 days ago          710MB
-beyondtheclouds/centos-source-kolla-toolbox               4.0.2               c08045b649e5        3 days ago          735MB
-beyondtheclouds/centos-source-openvswitch-db-server       4.0.2               a350c31ec539        3 days ago          440MB
-beyondtheclouds/centos-source-openvswitch-vswitchd        4.0.2               ad77e4d62e4d        3 days ago          440MB
-beyondtheclouds/centos-source-nova-libvirt                4.0.2               a856d37203ee        3 days ago          972MB
-beyondtheclouds/centos-source-mariadb                     4.0.2               d34337844f15        3 days ago          810MB
-beyondtheclouds/centos-source-rabbitmq                    4.0.2               4ccd1ab9aff1        3 days ago          478MB
-beyondtheclouds/centos-source-haproxy                     4.0.2               2359b9e9d557        3 days ago          439MB
-beyondtheclouds/centos-source-cron                        4.0.2               1d5c79f90c7f        3 days ago          418MB
-beyondtheclouds/centos-source-memcached                   4.0.2               735ea0d917e6        3 days ago          419MB
-beyondtheclouds/centos-source-keepalived                  4.0.2               afa30968c67a        3 days ago          424MB
-registry                                                  2                   9d0c4eabab4d        5 weeks ago         33.2MB
-grafana/grafana                                           3.1.0               932c5bca836b        11 months ago       263MB
-tutum/influxdb                                            0.13                39fa42a093e0        11 months ago       290MB
-google/cadvisor                                           v0.23.2             a9581675c250        13 months ago       48.4MB
+vagrant@lab-vm:~$ sudo docker images
+CONTAINER ID        IMAGE                                                           PORTS               NAMES
+a1c57ff4b25d        beyondtheclouds/centos-source-horizon:5.0.1                                         horizon
+e3303dad621b        beyondtheclouds/centos-source-neutron-metadata-agent:5.0.1                          neutron_metadata_agent
+15ec2a6702c0        beyondtheclouds/centos-source-neutron-l3-agent:5.0.1                                neutron_l3_agent
+f6b7e6ff171a        beyondtheclouds/centos-source-neutron-dhcp-agent:5.0.1                              neutron_dhcp_agent
+08a3cf6af038        beyondtheclouds/centos-source-neutron-openvswitch-agent:5.0.1                       neutron_openvswitch_agent
+1308668a3cd8        beyondtheclouds/centos-source-neutron-server:5.0.1                                  neutron_server
+f56c6f9d6b11        beyondtheclouds/centos-source-openvswitch-vswitchd:5.0.1                            openvswitch_vswitchd
+849fa9831bb7        beyondtheclouds/centos-source-openvswitch-db-server:5.0.1                           openvswitch_db
+0e237ebdc082        beyondtheclouds/centos-source-nova-compute:5.0.1                                    nova_compute
+fa89210d7048        beyondtheclouds/centos-source-nova-novncproxy:5.0.1                                 nova_novncproxy
+40fb744efdc6        beyondtheclouds/centos-source-nova-consoleauth:5.0.1                                nova_consoleauth
+d6d72e0b13ee        beyondtheclouds/centos-source-nova-conductor:5.0.1                                  nova_conductor
+ce63bc0ead78        beyondtheclouds/centos-source-nova-scheduler:5.0.1                                  nova_scheduler
+569c4ecbdba9        beyondtheclouds/centos-source-nova-api:5.0.1                                        nova_api
+c372962e57e4        beyondtheclouds/centos-source-nova-placement-api:5.0.1                              placement_api
+8965058db41f        beyondtheclouds/centos-source-nova-libvirt:5.0.1                                    nova_libvirt
+317be498959c        beyondtheclouds/centos-source-nova-ssh:5.0.1                                        nova_ssh
+de2504b8bff6        beyondtheclouds/centos-source-glance-registry:5.0.1                                 glance_registry
+b9dc92d42818        beyondtheclouds/centos-source-glance-api:5.0.1                                      glance_api
+ed519ff54ed7        beyondtheclouds/centos-source-keystone:5.0.1                                        keystone
+cee8cb849b40        beyondtheclouds/centos-source-rabbitmq:5.0.1                                        rabbitmq
+21aa98c5c207        beyondtheclouds/centos-source-mariadb:5.0.1                                         mariadb
+5d89dcb7a09b        beyondtheclouds/centos-source-memcached:5.0.1                                       memcached
+ba8ae03137cc        beyondtheclouds/centos-source-keepalived:5.0.1                                      keepalived
+048cf826c02d        beyondtheclouds/centos-source-haproxy:5.0.1                                         haproxy
+e5b1de64de58        beyondtheclouds/centos-source-cron:5.0.1                                            cron
+9636fc8ed550        beyondtheclouds/centos-source-kolla-toolbox:5.0.1                                   kolla_toolbox
+273206908a13        beyondtheclouds/centos-source-fluentd:5.0.1                                         fluentd
 #+END_EXAMPLE
 
-** Hotfix
-EnOS relies on OpenStack/kolla-ansible[fn:kolla-ansible] to deploy
-OpenStack. Yesterday night (2017-06-19) kolla-ansible updated its code
-base that breaks EnOS deployment. Before going further, please execute
-the following:
-: vagrant@enos-node:/opt/enos$ sed -i '68i\  openstack_release: 4.0.2\' reservation.yaml
-
-* Deploy OpenStack using EnOS
+* Deploy OpenStack with EnOS
 ** The EnOS configuration file
-To deploy OpenStack, Enos reads a /configuration/ file. This file
+To deploy OpenStack, EnOS reads a /configuration/ file. This file
 states the OpenStack resources you want to measure together with their
 topology. A configuration could say, "Deploy a basic OpenStack on a
 single node", or "Put OpenStack control services on ClusterA and
@@ -255,7 +235,7 @@ personal machine for VBox, and the Internet connection may be slow) we
 provide a configuration that says to deploy all OpenStack services on
 the lab machine using a special testbed we call static. You can read
 that configuration in the lab vm with:
-: vagrant@enos-node:/opt/enos$ less /opt/enos/reservation.yaml
+: vagrant@lab-vm:~$ less ~/rsc/reservation.yaml
 
 ** Deploy OpenStack
 EnOS manages all the aspect of an OpenStack deployment by calling
@@ -266,11 +246,11 @@ OpenStack services (e.g. Keystone, Nova, Neutron, ...) inside a
 dedicated Docker container.
 
 Launch the deployment with:
-: vagrant@enos-node:/opt/enos$ enos deploy -f reservation.yaml
+: vagrant@lab-vm:~$ enos deploy -f rsc/reservation.yaml
 
 Then, observe EnOS deploying containers from another terminal of your
 VM with:
-: vagrant@enos-node:/opt/enos$ sudo docker ps
+: vagrant@lab-vm:~$ sudo docker ps
 
 ** Play with OpenStack
 The last service deployed is the OpenStack dashboard (Horizon). Once
@@ -283,7 +263,7 @@ credentials:
 From here, you can reach ~Project > Compute > Instances > Launch
 Instance~ and boot a virtual machine given the following information:
 - a name (e.g., ~horizon-vm~)
-- an image (e.g., ~cirros.uec~)
+- an image (e.g., ~cirros~)
 - a flavor to limit the resources of your instance (I recommend
   ~tiny~)
 - and a network setting (must be ~private~)
@@ -294,7 +274,7 @@ button should be enabled. After clicking on it, you should see the
 instance in the ~Active~ state in less than a minute.
 
 Now, you have several option to connect to your freshly deployed VM.
-For instance, by clicking on its name Horizon provides a virtual
+For instance, by clicking on its name, Horizon provides a virtual
 console under the tab ~Console~. Use the following credentials to
 access the VM:
 - login: ~cirros~
@@ -311,11 +291,11 @@ credentials, so that the command line won't bother you by requiring
 credentials each time.
 
 Load the OpenStack credentials:
-: vagrant@enos-node:/opt/enos$ source current/admin-openrc
+: vagrant@lab-vm:~$ source ~/current/admin-openrc
 
 You can then check that your environment is correctly set by:
 #+BEGIN_EXAMPLE
-vagrant@enos-node:/opt/enos$ env|grep OS_
+vagrant@lab-vm:~$ env|grep OS_
 OS_PROJECT_DOMAIN_ID=default
 OS_REGION_NAME=RegionOne
 OS_USER_DOMAIN_NAME=default
@@ -346,15 +326,16 @@ you a selection of most often used commands to operate your Cloud:
 Using all these commands, you can use the cli to start a new tiny
 cirros VM called ~cli-vm~:
 #+BEGIN_EXAMPLE
-vagrant@enos-node:/opt/enos$ openstack server create\
-  --image cirros.uec\
+vagrant@lab-vm:~$ openstack server create\
+  --image cirros\
   --flavor m1.tiny\
   --nic net-id=$(openstack network show private --column id --format value)\
   cli-vm
 #+END_EXAMPLE
 
 And then display information about your VM with the following command.
-: vagrant@enos-node:/opt/enos$ openstack server show cli-vm
+: vagrant@lab-vm:~$ openstack server show cli-vm
+
 Note in particular the status of your VM. This status will go from
 ~BUILD~: OpenStack is looking for the best place to boot the VM, to
 ~ACTIVE~: your VM is running. The status could also be ~ERROR~ if you
@@ -367,18 +348,18 @@ will find a challenge here: try to ping the VM from the lab machine.
 For the others, you have to manually affect a floating IP to your
 machine if you want it pingable from the lab.
 #+BEGIN_EXAMPLE
-vagrant@enos-node:/opt/enos$ openstack server add floating ip\
+vagrant@lab-vm:~$ openstack server add floating ip\
   cli-vm\
   $(openstack floating ip create public -c floating_ip_address -f value)
 #+END_EXAMPLE
 
 Then, ask for the status of your VM and its IPs with:
-: vagrant@enos-node:/opt/enos$ openstack server show cli-vm -c status -c addresses
+: vagrant@lab-vm:~$ openstack server show cli-vm -c status -c addresses
 
 When the state is ~ACTIVE~ wait one minute or two, the time for the VM
 to boot. Then you can ping it on its floating IP and SSH on it:
-: vagrant@enos-node:/opt/enos$ ping <floating-ip> # floating-ip is 192.168.143.*
-: vagrant@enos-node:/opt/enos$ ssh -l cirros <floating-ip>
+: vagrant@lab-vm:~$ ping <floating-ip> # floating-ip is 192.168.143.*
+: vagrant@lab-vm:~$ ssh -l cirros <floating-ip>
 
 #+BEGIN_NOTE
 You can check that the VM finished to boot by looking at its logs with
@@ -435,11 +416,11 @@ http://192.168.142.127:3000 with the following credentials:
 The dashboard of Grafana is highly customizable. For the sake of
 simplicity, we propose to use our configuration file that you can get
 with:
-: host:~/rescom17-enos$ curl http://enos.irisa.fr/vagrant-box/grafana_dashboard_rescom2017.json -O
+: host:~/oph-co$ curl http://enos.irisa.fr/vagrant-box/grafana_dashboard_rescom2017.json -O
 
 You have then to import this file into Grafana. First, click on the
 ~Grafana logo > Dashboard > Import > Upload .json file~ and select the
-=~/rescom17-enos/grafana_dashboard_rescom2017.json= file. Next, make
+=~/oph-co/grafana_dashboard_rescom2017.json= file. Next, make
 names of the right column matching names of the left column by
 selecting the good item in the list. And finish by clicking on ~Save &
 Open~. This opens the dashboard with several measures on Nova,
@@ -466,7 +447,7 @@ Rally[fn:rally] and the one for data plane is called
 Shaker[fn:shaker]. And these two are well integrated into EnOS.
 
 Calling Rally and Shaker from EnOS is done with:
-: vagrant@enos-node:/opt/enos$ enos bench --workload=workload
+: vagrant@lab-vm:/opt/enos$ enos bench --workload=workload
 
 #+BEGIN_NOTE
 At the same time as ~enos bench~ running, keep an eye on the Grafana
@@ -537,19 +518,19 @@ Rally produces a report with the full duration, load mean duration,
 number of iteration and percent of failures, per scenario. These
 reports, plus data measured by cAdvisor and Collectd, plus logs of
 every OpenStack services can be backup by EnOS with:
-: vagrant@enos-node:/opt/enos$ enos backup --backup_dir=/vagrant_data
+: vagrant@lab-vm:/opt/enos$ enos backup --backup_dir=/vagrant_data
 
 The argument ~backup_dir~ tells where to store backup archives. For
 this lab, we recommend to put backup in ~/vagrant_data~. The
 ~/vagrant_data~ is a specific directory shared with the
-=~/rescom17-enos= of the host machine. If you look into this
+=~/oph-co= of the host machine. If you look into this
 directory, you will see, among others, an archive named
-~enos-node-rally.tar.gz~. Concretely, this archive contains a backup
+~lab-vm-rally.tar.gz~. Concretely, this archive contains a backup
 of Rally database with all raw data and the Rally reports. You can
 extract the rally report with the following command and then open it
 in your favorite browser:
-: host:~/rescom17-enos$ tar -x root/rally_home/report.html -f enos-node-rally.tar.gz
-: host:~/rescom17-enos$ firefox root/rally_home/report.html
+: host:~/oph-co$ tar -x root/rally_home/report.html -f lab-vm-rally.tar.gz
+: host:~/oph-co$ firefox root/rally_home/report.html
 
 If you look carefully, you will see that execution of Nova boot and
 list fails because of a SLA violation. You can try to customize
@@ -558,8 +539,8 @@ listing [[lst:run]] to make the test pass.
 ** Integration with a custom benchmarking suite
 EnOS exposes information it gathered during the deployment with:
 #+BEGIN_EXAMPLE
-vagrant@enos-node:/opt/enos$ enos info --out json
-{"resultdir": "/opt/enos/enos_2017-06-18T14:52:54.341891", "config_file": "./reservation.yaml", "eths": ["eth1", "eth2"], "provider_net": {"start": "192.168.143.3", "end": "192.168.143.119", "dns": "8.8.8.8", "extra_ips": [], "cidr": "192.168.143.0/24", "gateway": "192.168.143.1"}, "user": "", "phase": "", "nodes": {}, "rsc": {"control": [{"extra": {}, "alias": "enos-node", "user": "root", "address": "127.0.0.1", "keyfile": null, "port": null}], "compute": [{"extra": {}, "alias": "enos-node", "user": "root", "address": "127.0.0.1", "keyfile": null, "port": null}], "network": [{"extra": {}, "alias": "enos-node", "user": "root", "address": "127.0.0.1", "keyfile": null, "port": null}]}, "config": {"resultdir": "/opt/enos/enos_2017-06-18T14:52:54.341891", "kolla_ref": "stable/ocata", "influx_vip": "192.168.142.102", "vip": "192.168.142.103", "registry_vip": "192.168.142.104", "grafana_vip": "192.168.142.101", "backup_dir": "/vagrant_data", "kolla_repo": "https://git.openstack.org/openstack/kolla-ansible", "inventory": "inventories/inventory.sample", "external_vip": "192.168.142.100", "enable_monitoring": true, "kolla": {"kolla_base_distro": "centos", "kolla_install_type": "source", "docker_namespace": "beyondtheclouds", "enable_heat": "no", "node_custom_config": "patch/"}, "provider": {"type": "static", "eths": ["eth1", "eth2"], "network": {"start": "192.168.143.3", "end": "192.168.143.119", "dns": "8.8.8.8", "extra_ips": ["192.168.142.100", "192.168.142.101", "192.168.142.102", "192.168.142.103", "192.168.142.104"], "cidr": "192.168.143.0/24", "gateway": "192.168.143.1"}}, "database_password": "demo", "registry": {"ceph": false}, "rabbitmq_password": "demo", "resources": {"control": {"alias": "enos-node", "user": "root", "address": "127.0.0.1"}, "compute": {"alias": "enos-node", "user": "root", "address": "127.0.0.1"}, "network": {"alias": "enos-node", "user": "root", "address": "127.0.0.1"}}, "network_interface": "eth1"}, "inventory": "/opt/enos/enos_2017-06-18T14:52:54.341891/multinode"}
+vagrant@lab-vm:/opt/enos$ enos info --out json
+{"resultdir": "/opt/enos/enos_2017-06-18T14:52:54.341891", "config_file": "./reservation.yaml", "eths": ["eth1", "eth2"], "provider_net": {"start": "192.168.143.3", "end": "192.168.143.119", "dns": "8.8.8.8", "extra_ips": [], "cidr": "192.168.143.0/24", "gateway": "192.168.143.1"}, "user": "", "phase": "", "nodes": {}, "rsc": {"control": [{"extra": {}, "alias": "lab-vm", "user": "root", "address": "127.0.0.1", "keyfile": null, "port": null}], "compute": [{"extra": {}, "alias": "lab-vm", "user": "root", "address": "127.0.0.1", "keyfile": null, "port": null}], "network": [{"extra": {}, "alias": "lab-vm", "user": "root", "address": "127.0.0.1", "keyfile": null, "port": null}]}, "config": {"resultdir": "/opt/enos/enos_2017-06-18T14:52:54.341891", "kolla_ref": "stable/ocata", "influx_vip": "192.168.142.102", "vip": "192.168.142.103", "registry_vip": "192.168.142.104", "grafana_vip": "192.168.142.101", "backup_dir": "/vagrant_data", "kolla_repo": "https://git.openstack.org/openstack/kolla-ansible", "inventory": "inventories/inventory.sample", "external_vip": "192.168.142.100", "enable_monitoring": true, "kolla": {"kolla_base_distro": "centos", "kolla_install_type": "source", "docker_namespace": "beyondtheclouds", "enable_heat": "no", "node_custom_config": "patch/"}, "provider": {"type": "static", "eths": ["eth1", "eth2"], "network": {"start": "192.168.143.3", "end": "192.168.143.119", "dns": "8.8.8.8", "extra_ips": ["192.168.142.100", "192.168.142.101", "192.168.142.102", "192.168.142.103", "192.168.142.104"], "cidr": "192.168.143.0/24", "gateway": "192.168.143.1"}}, "database_password": "demo", "registry": {"ceph": false}, "rabbitmq_password": "demo", "resources": {"control": {"alias": "lab-vm", "user": "root", "address": "127.0.0.1"}, "compute": {"alias": "lab-vm", "user": "root", "address": "127.0.0.1"}, "network": {"alias": "lab-vm", "user": "root", "address": "127.0.0.1"}}, "network_interface": "eth1"}, "inventory": "/opt/enos/enos_2017-06-18T14:52:54.341891/multinode"}
 #+END_EXAMPLE
 
 Someone can easily reuse this information to integrate its own
@@ -583,7 +564,7 @@ to download all OpenStack docker images:
 #+BEGIN_SRC ruby
 provider:
   type: vagrant
-  box: "file://~/rescom17-enos/rescom17.box"
+  box: "file://~/oph-co/rescom17.box"
 #+END_SRC
 
 ** Define Network Constraints
