@@ -6,6 +6,7 @@
     apt: name={{ item }} state=present update_cache=yes
     with_items:
       # Sanity
+      - jq
       - vim
       # Enos & Co
       - git
@@ -15,6 +16,10 @@
       - python-pip
       - python-virtualenv
       - python-setuptools
+      - openvswitch-switch
+      # debug
+      - bridge-utils
+      - tcpdump
     become: true
 
   - name: Generate a new ssh key for kolla-ansible
