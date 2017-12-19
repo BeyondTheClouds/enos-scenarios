@@ -6,6 +6,7 @@
     apt: name={{ item }} state=present update_cache=yes
     with_items:
       # Sanity
+      - htop
       - jq
       - vim
       # Enos & Co
@@ -35,15 +36,20 @@
       creates: /root/.ssh/autorized_keys
     become: true
 
-  - name: Download cirros into /home/vagrant
-    get_url:
-      url: http://download.cirros-cloud.net/0.3.5/cirros-0.3.5-x86_64-disk.img
-      dest: /home/vagrant/cirros.qcow2
+  # - name: Download cirros into /home/vagrant
+  #   get_url:
+  #     url: http://download.cirros-cloud.net/0.3.5/cirros-0.3.5-x86_64-disk.img
+  #     dest: /home/vagrant/cirros.qcow2
 
-  - name: Download debian-9 into /home/vagrant (see, https://cdimage.debian.org/cdimage/openstack/current-9/)
-    get_url:
-      url: https://cdimage.debian.org/cdimage/openstack/current-9/debian-9-openstack-amd64.qcow2
-      dest: /home/vagrant/debian-9.qcow2
+  # - name: Download debian-9 into /home/vagrant (see, https://cdimage.debian.org/cdimage/openstack/current-9/)
+  #   get_url:
+  #     url: https://cdimage.debian.org/cdimage/openstack/current-9/debian-9-openstack-amd64.qcow2
+  #     dest: /home/vagrant/debian-9.qcow2
+
+  - name: Copy the Arch Linux on the system
+    copy:
+      src: arch.qcow2
+      dest: /home/vagrant/arch.qcow2
 
   # - name: Download enos into /opt
   #   git:

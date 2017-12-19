@@ -47,13 +47,13 @@ To follow the lab you'll need :
 - VirtualBox 5.2 or upper [fn:virtualbox-downloads]
 - Vagrant 2.0.1 or upper[fn:vagrant-downloads]
 
-The lab makes use of a pre-installed virtual machine (lab-vm) where
-EnOS[fn:enos-paper][fn:enos-code] is installed. EnOS is a holistic
-framework leveraging containers to conduct easy and reproducible
-evaluations of different OpenStack configurations. In particular, EnOS
-helps you in deploying real OpenStack infrastructure, stressing it and
-getting feedback. In the following, we gonna use EnOS to easily deploy
-OpenStack inside the lab-vm.
+The lab makes use of a pre-installed virtual machine (called
+openstack) where EnOS[fn:enos-paper][fn:enos-code] is installed. EnOS
+is a holistic framework leveraging containers to conduct easy and
+reproducible evaluations of different OpenStack configurations. In
+particular, EnOS helps you in deploying real OpenStack infrastructure,
+stressing it and getting feedback. In the following, we gonna use EnOS
+to easily deploy OpenStack inside the virtual machine.
 
 The following depicts the status of the different components in play
 during the lab.
@@ -64,7 +64,7 @@ during the lab.
 |                                       |
 |                                       |
 |   +---------------------------+       |
-|   |   lab-vm machine (vagrant)|       |
+|   |openstack machine (vagrant)|       |
 |   |     ~/rsc <- - - - - -  - - - - - - - - - -  EnOS sources & configuration files
 |   |                           |       |
 |   |  * docker container 1 +   |       |
@@ -110,13 +110,13 @@ Vagrant.configure("2") do |config|
   config.vm.box = "file://./rescom17.box"
 
   # Network configuration
-  config.vm.hostname = "lab-vm"
+  config.vm.hostname = "openstack"
   # the lab vm is started with 2 extra network interfaces with
   # the specified ip addresses
   config.vm.network :private_network, ip: "192.168.142.127"
   config.vm.network :private_network, ip: "192.168.143.127"
 
-  # Synchronised `host:~/rescom-enos` with `lab-vm:/vagrant_data`
+  # Synchronised `host:~/rescom-enos` with `openstack:/vagrant_data`
   config.vm.synced_folder "./", "/vagrant_data",
      owner: "vagrant",
      group: "vagrant"
@@ -145,7 +145,7 @@ SSH into the lab VM :
 The EnOS tool is already installed in =~/rsc/enos=. To be sure that
 everything is setup correctly, display the help message.
 #+BEGIN_EXAMPLE
-vagrant@lab-vm:~$ enos --help
+vagrant@openstack:~$ enos --help
 EnOS: Monitor and test your OpenStack.
 
 usage: enos <command> [<args> ...] [-e ENV|--env=ENV]
@@ -172,7 +172,7 @@ command.
 You can also check that all the docker images we gonna use in this lab
 are present.
 #+BEGIN_EXAMPLE
-vagrant@lab-vm:~$ sudo docker images
+vagrant@openstack:~$ sudo docker images
 CONTAINER ID        IMAGE                                                           PORTS               NAMES
 a1c57ff4b25d        beyondtheclouds/centos-source-horizon:5.0.1                                         horizon
 e3303dad621b        beyondtheclouds/centos-source-neutron-metadata-agent:5.0.1                          neutron_metadata_agent
@@ -206,6 +206,13 @@ e5b1de64de58        beyondtheclouds/centos-source-cron:5.0.1                    
 
 * Deploy OpenStack with EnOS
 ** The EnOS configuration file
+In this lab, we use EnOS to ease the deployment of OpenStack. There
+are several other options such as DevStack[fn:devstack],
+Puppet-OpenStack[fn:puppet] or Kolla-ansible[fn:kolla-ansible] and all
+matters. But, EnOS comes with great advantage when you want to do
+performance analysis of your OpenStack.
+
+
 To deploy OpenStack, EnOS reads a /configuration/ file. This file
 states the OpenStack resources you want to measure together with their
 topology. A configuration could say, "Deploy a basic OpenStack on a
@@ -229,7 +236,7 @@ personal machine for VBox, and the Internet connection may be slow) we
 provide a configuration that says to deploy all OpenStack services on
 the lab machine using a special testbed we call static. You can read
 that configuration in the lab vm with:
-: vagrant@lab-vm:~$ less ~/rsc/reservation.yaml
+: vagrant@openstack:~$ less ~/rsc/reservation.yaml
 
 ** Deploy OpenStack
 EnOS manages all the aspect of an OpenStack deployment by calling
@@ -240,11 +247,11 @@ OpenStack services (e.g. Keystone, Nova, Neutron, ...) inside a
 dedicated Docker container.
 
 Launch the deployment with:
-: vagrant@lab-vm:~$ enos deploy -f rsc/reservation.yaml
+: vagrant@openstack:~$ enos deploy -f rsc/reservation.yaml
 
 Then, observe EnOS deploying containers from another terminal of your
 VM with:
-: vagrant@lab-vm:~$ sudo docker ps
+: vagrant@openstack:~$ sudo docker ps
 
 ** Play with OpenStack
 The last service deployed is the OpenStack dashboard (Horizon). Once
@@ -285,11 +292,11 @@ credentials, so that the command line won't bother you by requiring
 credentials each time.
 
 Load the OpenStack credentials:
-: vagrant@lab-vm:~$ source ~/current/admin-openrc
+: vagrant@openstack:~$ source ~/current/admin-openrc
 
 You can then check that your environment is correctly set by:
 #+BEGIN_EXAMPLE
-vagrant@lab-vm:~$ env|grep OS_
+vagrant@openstack:~$ env|grep OS_
 OS_PROJECT_DOMAIN_ID=default
 OS_REGION_NAME=RegionOne
 OS_USER_DOMAIN_NAME=default
@@ -320,15 +327,15 @@ you a selection of most often used commands to operate your Cloud:
 Using all these commands, you can use the cli to start a new tiny
 cirros VM called ~cli-vm~:
 #+BEGIN_EXAMPLE
-vagrant@lab-vm:~$ openstack server create\
+vagrant@openstack:~$ openstack server create\
   --image cirros\
   --flavor m1.tiny\
-  --nic net-id=$(openstack network show private --column id --format value)\
+  --network private\
   cli-vm
 #+END_EXAMPLE
 
 And then display information about your VM with the following command.
-: vagrant@lab-vm:~$ openstack server show cli-vm
+: vagrant@openstack:~$ openstack server show cli-vm
 
 Note in particular the status of your VM. This status will go from
 ~BUILD~: OpenStack is looking for the best place to boot the VM, to
@@ -342,18 +349,18 @@ will find a challenge here: try to ping the VM from the lab machine.
 For the others, you have to manually affect a floating IP to your
 machine if you want it pingable from the lab.
 #+BEGIN_EXAMPLE
-vagrant@lab-vm:~$ openstack server add floating ip\
+vagrant@openstack:~$ openstack server add floating ip\
   cli-vm\
   $(openstack floating ip create public -c floating_ip_address -f value)
 #+END_EXAMPLE
 
 Then, ask for the status of your VM and its IPs with:
-: vagrant@lab-vm:~$ openstack server show cli-vm -c status -c addresses
+: vagrant@openstack:~$ openstack server show cli-vm -c status -c addresses
 
 When the state is ~ACTIVE~ wait one minute or two, the time for the VM
 to boot. Then you can ping it on its floating IP and SSH on it:
-: vagrant@lab-vm:~$ ping <floating-ip> # floating-ip is 192.168.143.*
-: vagrant@lab-vm:~$ ssh -l cirros <floating-ip>
+: vagrant@openstack:~$ ping <floating-ip> # floating-ip is 192.168.143.*
+: vagrant@openstack:~$ ssh -l cirros <floating-ip>
 
 #+BEGIN_NOTE
 You can check that the VM finished to boot by looking at its logs with
@@ -390,7 +397,7 @@ Next, start a new VM and ask OpenStack to copy the public counterpart
 of your SSH key on the VM. Note the ~--key-name admin~.
 #+BEGIN_SRC bash
 openstack server create --wait\
-                        --image cirros\
+                        --image arch\
                         --flavor m1.small\
                         --network private\
                         --key-name admin\
@@ -456,6 +463,8 @@ openstack server create --os-project-name ${PROJECT}\
  #+END_SRC
 * Footnotes
 
+[fn:devstack] https://docs.openstack.org/devstack/latest/
+[fn:puppet] https://docs.openstack.org/puppet-openstack-guide/latest/
 [fn:kolla-ansible] https://docs.openstack.org/developer/kolla-ansible/
 [fn:enos-paper] https://hal.inria.fr/hal-01415522v2
 [fn:enos-code] https://github.com/BeyondTheClouds/enos

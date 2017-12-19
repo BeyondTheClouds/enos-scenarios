@@ -1,12 +1,29 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+def nat_network(config)
+  # This only works for Virtualbox
+  config.vm.provider :virtualbox do |vb|
+    # Create the neutron-public Nat Network if it doesn't exist
+    output = `VBoxManage natnetwork list neutron-public`
+
+    if not output.include? "network found"
+      vb.customize ["natnetwork", "add", "--netname", "neutron-public",
+                    "--network", "192.168.143.0/24", "--enable",
+                    "--dhcp", "on"]
+    end
+
+    vb.customize ["modifyvm", :id, "--nic3", "natnetwork", "--nat-network3", "neutron-public"]
+  end
+end
+
 Vagrant.configure("2") do |config|
   config.vm.box = "bento/debian-9.1"
 
-  config.vm.hostname = "lab-vm"
+  config.vm.hostname = "openstack"
   config.vm.network :private_network, ip: "192.168.142.127", auto_config: true
-  config.vm.network :private_network, ip: "192.168.143.127", auto_config: true
+  config.vm.network :private_network,  ip: "192.168.143.127",  auto_config: false
+  nat_network(config)
 
   config.vm.provider "virtualbox" do |vb|
     vb.cpus = 6
@@ -16,6 +33,11 @@ Vagrant.configure("2") do |config|
   config.vm.synced_folder "./", "/home/vagrant/rsc",
     owner: "vagrant",
     group: "vagrant"
+
+  # Set ip for the public network
+  config.vm.provision :shell,
+    run: "always",
+    inline: "ip addr add 192.168.143.127/24 dev enp0s9"
 
   config.vm.provision :ansible_local do |ansible|
     ansible.install_mode = "pip"
