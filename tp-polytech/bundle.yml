@@ -46,10 +46,10 @@
   #     url: https://cdimage.debian.org/cdimage/openstack/current-9/debian-9-openstack-amd64.qcow2
   #     dest: /home/vagrant/debian-9.qcow2
 
-  # - name: Copy the Arch Linux on the system
-  #   copy:
-  #     src: arch.qcow2
-  #     dest: /home/vagrant/arch.qcow2
+  - name: Copy the Arch Linux on the system
+    copy:
+      src: arch.qcow2
+      dest: /home/vagrant/arch.qcow2
 
   # - name: Download enos into /opt
   #   git:

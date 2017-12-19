@@ -386,22 +386,26 @@ by Nova with ~openstack server --help~ and try to figure out how to
 SSH on ~cli-vm~ using its name rather than its floating IP.
 
 *** In Encryption We Trust
-TODO: A word on SSH.
+Any cirros VMs share the same credential ({{{ie}}} ~cirros~,
+~cubswin~) which is a security problem. As a IaaS DevOps, you want
+that only some clients can SSH on some VMs. Fortunately, OpenStack
+helps with the management of SSH keys. OpenStack can generate a SSH
+key and push the public counterpart on the VM. Therefore, SSH on the
+VM will use that SSH key and the client do not have to fill
+credentials.
 
 Make a SSH key and store the private counterpart in =~/admin.pem=.
 Then, give that file the correct permission access.
-: openstack keypair create --private-key ~/admin.pem admin
-: chmod 600 admin.pem
+: vagrant@openstack:~$ openstack keypair create --private-key ~/admin.pem admin
+: vagrant@openstack:~$ chmod 600 admin.pem
 
 Next, start a new VM and ask OpenStack to copy the public counterpart
-of your SSH key on the VM. Note the ~--key-name admin~.
+of your SSH key in the =~/.ssh/authorized_keys= of the VM ({{{ie}}}
+note the ~--key-name admin~).
 #+BEGIN_SRC bash
-openstack server create --wait\
-                        --image arch\
-                        --flavor m1.small\
-                        --network private\
-                        --key-name admin\
-                        cli-vm-adminkey
+vagrant@openstack:~$ openstack server create --wait --image arch\
+                               --flavor m1.small --network private\
+                               --key-name admin cli-vm-adminkey
 #+END_SRC
 
 Now you can access your VM using ssh directly.
