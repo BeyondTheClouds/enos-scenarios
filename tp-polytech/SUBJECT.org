@@ -124,8 +124,8 @@ Vagrant.configure("2") do |config|
   config.vm.network :private_network, ip: "192.168.142.127"
   config.vm.network :private_network, ip: "192.168.143.127"
 
-  # Synchronised `host:~/rescom-enos` with `openstack:/vagrant_data`
-  config.vm.synced_folder "./", "/vagrant_data",
+  # Synchronised `host:~/oph-co` with `openstack:~/rsc`
+  config.vm.synced_folder "./", "/home/vagrant/rsc",
      owner: "vagrant",
      group: "vagrant"
 
