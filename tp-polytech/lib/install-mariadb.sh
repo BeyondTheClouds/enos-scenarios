@@ -14,9 +14,7 @@ apt install -q -y mariadb-server mariadb-client
 
 # Next line stops mysql install from popping up request for root password
 export DEBIAN_FRONTEND=noninteractive
-apt-get install -q -y --force-yes mariadb-server
-sed -i 's/bind-address/#bind-address/' /etc/mysql/my.cnf
-# systemctl enable mysql
+sed -i 's/127.0.0.1/0.0.0.0/' /etc/mysql/my.cnf
 systemctl restart mysql
 
 # Setup MySQL root password and create a user and add remote privs to app subnet
@@ -31,5 +29,5 @@ SET PASSWORD FOR '${DB_USER}'@'localhost'=PASSWORD("${DB_PASSWORD}");
 GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
 CREATE USER '${DB_USER}'@'%';
 SET PASSWORD FOR '${DB_USER}'@'%'=PASSWORD("${DB_PASSWORD}");
-GRANT ALL PRIVILEGES ON DB_NAME.* TO '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASSWORD}';
+GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASSWORD}';
 EOSQL
