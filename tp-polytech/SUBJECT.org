@@ -90,11 +90,20 @@ EnOS would also probably deploy OpenStack on a dedicated infrastructure
 (instead of a single VM).
 #+END_NOTE
 
+** Setup the lab vm
 *** Get the base box
-Download the Vagrant box[fn:enos-box] in your working directory.
-: host:~$ mkdir omh-co
-: host:~$ cd omh-co
-: host:~/omh-co$ curl -O http://enos.irisa.fr/vagrant-box/tp.box
+Download the lab archive in your working directory.
+: host:~$ curl -O http://enos.irisa.fr/vagrant-box/omh-co.tar.gz
+: host:~$ tar xf omh-co.tar.gz
+
+The archive contains the Vagrant box, plus other resources useful for
+this lab.
+
+# Download the Polytech Vagrant box[fn:enos-box] in your working
+# directory.
+# : host:~$ mkdir oph-co
+# : host:~$ cd oph-co
+# : host:~/oph-co$ curl -O http://enos.irisa.fr/vagrant-box/rescom17.box
 
 #+BEGIN_NOTE
 The box contains EnOS together with all resources needed by EnOS to
@@ -102,10 +111,8 @@ run OpenStack. The result is a relatively huge box (~3GB), but it
 contains everything you need to run EnOS almost offline.
 #+END_NOTE
 
-While the box is downloading, you can proceed with the next section.
-
 *** Prepare the lab VM
-Create a ~Vagrantfile~ as the following (substitute <editor> with your
+Check the ~Vagrantfile~ as the following (substitute <editor> with your
 favorite editor):
 : host:~/omh-co$ <editor> Vagrantfile
 
@@ -113,7 +120,7 @@ favorite editor):
 # omh-co/Vagrantfile content
 Vagrant.configure("2") do |config|
   # Location of the VM image
-  config.vm.box = "file://./tp.box"
+  config.vm.box = "file://./omh.box"
 
   # Network configuration
   config.vm.hostname = "openstack"
