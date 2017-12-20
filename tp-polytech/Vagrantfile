@@ -1,56 +1,69 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
-def nat_network(config)
-  # This only works for Virtualbox
-  config.vm.provider :virtualbox do |vb|
-    # Create the neutron-public Nat Network if it doesn't exist
-    output = `VBoxManage natnetwork list neutron-public`
+# $script = <<SCRIPT
+# # Add default route through neutron-public Nat Network
+# if [ $(ip route show default via 192.168.143.1 | wc -l) -eq 0 ]; then
+#    echo "Default route through neutron-public Nat Network"
+#    route add default gw 192.168.143.1
+# fi
 
-    if not output.include? "network found"
-      vb.customize ["natnetwork", "add", "--netname", "neutron-public",
-                    "--network", "192.168.143.0/24", "--enable",
-                    "--dhcp", "on"]
-    end
-  end
-end
+# # Remove the default route through Nat
+# if [ $(ip route show default via 10.0.2.2 | wc -l) -eq 1 ]; then
+#    echo "Remove default route through Nat"
+#    ip route del default via 10.0.2.2 dev enp0s3
+# fi
+# SCRIPT
+
+# def nat_network(config)
+#   # This only works for Virtualbox
+#   config.vm.provider :virtualbox do |vb|
+#     # Create the neutron-public Nat Network if it doesn't exist
+#     output = `VBoxManage natnetwork list neutron-public`
+
+#     if not output.include? "network found"
+#       vb.customize ["natnetwork", "add", "--netname", "neutron-public",
+#                     "--network", "192.168.143.0/24", "--enable",
+#                     "--dhcp", "on"]
+#     end
+#   end
+# end
 
 Vagrant.configure("2") do |config|
   config.vm.box = "bento/debian-9.1"
 
   #EXPERIMENTAL
-  nat_network(config)
+  # nat_network(config)
 
   config.vm.hostname = "openstack"
   config.vm.network :private_network, ip: "192.168.142.127", auto_config: true
+  # config.vm.network :private_network,
+  #                   ip: "192.168.143.127",
+  #                   name: "neutron-public",
+  #                   gateway: "192.168.143.1",
+  #                   auto_config: true
   config.vm.network :private_network,
                     ip: "192.168.143.127",
-                    name: "neutron-public",
-                    gateway: "192.168.143.1",
                     auto_config: true
 
   config.vm.provider "virtualbox" do |vb|
     vb.cpus = 6
-    vb.memory = 8192
-    vb.customize ["modifyvm", :id, "--nic3", "natnetwork", "--nat-network3", "neutron-public"]
+    vb.memory = 10240
+    # vb.customize ["modifyvm", :id, "--nic3", "natnetwork", "--nat-network3", "neutron-public"]
   end
 
   config.vm.synced_folder "./", "/home/vagrant/rsc",
     owner: "vagrant",
     group: "vagrant"
 
-  # Set ip for the public network
-  config.vm.provision :shell,
-    run: "always",
-    inline: "route add default gw 192.168.143.1"
-
-  config.vm.provision :shell,
-    run: "always",
-    inline: "ip route del default via 10.0.2.2 dev enp0s3"
+  # # Set ip for the public network
+  # config.vm.provision :shell,
+  #   run: "always",
+  #   inline: $script
 
   config.vm.provision :ansible_local do |ansible|
     ansible.install_mode = "pip"
-    ansible.version = "latest"
+    ansible.version = "2.4.0.0"
     ansible.playbook = "bundle.yml"
   end
 end

@@ -7,7 +7,11 @@
 
 #+OPTIONS: ':t email:t toc:nil
 
-#+HTML_HEAD: <link id="pagestyle" rel="stylesheet" type="text/css" href="org.css"/>
+#+HTML_HEAD: <link id="pagestyle" rel="stylesheet" type="text/css" href="timeline.css"/>
+
+#+MACRO: eg /e.g./,
+#+MACRO: ie /i.e./,
+#+MACRO: i18n /$1/ (en anglais, $2)
 
 #+BEGIN_abstract
 OpenStack has become the de-facto solution to operate compute, network
@@ -37,8 +41,12 @@ are going to:
    - [[#play-with-openstack][Play with OpenStack]]
      - [[#unleash-the-operator-in-you][Unleash the Operator in You]]
      - [[#in-encryption-we-trust][In Encryption We Trust]]
+     - [[#the-art-of-provisionning][The Art of Provisionning]]
  - [[#oph----online-polytech-hosting][OPH -- Online Polytech Hosting]]
-   - [[#wordpress-mysql-database][Wordpress MySQL Database]]
+   - [[#clean-the-environment][Clean the environment]]
+ - [[#appendix][Appendix]]
+   - [[#installs-mariadb-on-debian-9][Installs MariaDB on Debian 9]]
+   - [[#installs-wordpress-on-debian-9][Installs Wordpress on Debian 9]]
  - [[#footnotes][Footnotes]]
 
 * Requirements and Setup
@@ -385,14 +393,16 @@ Before going to the next section, feel free to play around with the
 by Nova with ~openstack server --help~ and try to figure out how to
 SSH on ~cli-vm~ using its name rather than its floating IP.
 
+# : openstack server ssh cli-vm --address-type private --login cirros
+
 *** In Encryption We Trust
-Any cirros VMs share the same credential ({{{ie}}} ~cirros~,
+Any cirros VMs share the same credentials ({{{ie}}} ~cirros~,
 ~cubswin~) which is a security problem. As a IaaS DevOps, you want
 that only some clients can SSH on some VMs. Fortunately, OpenStack
 helps with the management of SSH keys. OpenStack can generate a SSH
-key and push the public counterpart on the VM. Therefore, SSH on the
-VM will use that SSH key and the client do not have to fill
-credentials.
+key and push the public counterpart on the VM. Therefore, doing a
+~ssh~ on the VM will use the SSH key instead of asking the client to
+fill the credentials.
 
 Make a SSH key and store the private counterpart in =~/admin.pem=.
 Then, give that file the correct permission access.
@@ -403,70 +413,119 @@ Next, start a new VM and ask OpenStack to copy the public counterpart
 of your SSH key in the =~/.ssh/authorized_keys= of the VM ({{{ie}}}
 note the ~--key-name admin~).
 #+BEGIN_SRC bash
-vagrant@openstack:~$ openstack server create --wait --image arch\
+vagrant@openstack:~$ openstack server create --wait --image cirros\
                                --flavor m1.small --network private\
                                --key-name admin cli-vm-adminkey
 #+END_SRC
 
-Now you can access your VM using ssh directly.
-: openstack server show cli-vm-adminkey -c addresses -f value | sed  -r 's/private=(10\.0\.0\..).*/\1/g'
-: ssh -i admin.pem -l debian $(openstack server show cli-vm-adminkey -c addresses -f value | sed  -r 's/private=(10\.0\.0\..).*/\1/g')
+Now you can access your VM using SSH without filling credentials.
+#+BEGIN_SRC bash
+vagrant@openstack:~$ openstack server ssh cli-vm-adminkey \
+                                --address-type private\
+                                --login cirros\
+                                --identity ~/admin.pem
+#+END_SRC
+: vagrant@openstack:~$ openstack
+Or directly with the ~ssh~ command
+: vagrant@openstack:~$ ssh -i ~/admin.pem cirros@$(openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/private=(10\.0\.0\.[0-9]+).*/\1/g')
 
-TODO: a word on cloud-init.
+#+BEGIN_NOTE
+A regular ~ssh~ command looks like ~ssh -i <identity-file> <name>@<server-ip>~. The following OpenStack command followed by the ~sed~ returns the private IP of ~cli-vm-adminkey~.
+: vagrant@openstack:~$ openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/private=(10\.0\.0\.[0-9]+).*/\1/g'
+#+END_NOTE
+
+*** The Art of Provisionning
+TODO
 
 * OPH -- Online Polytech Hosting
-TODO: A word on the project.
+Wordpress[fn:wordpress] is the most popular content management system
+(CMS) in use on the Web. People use it to create websites, blogs or
+applications. It is open-source, and based on PHP and MySQL under the
+hood.
 
-** Wordpress MySQL Database
+A common Wordpress deployment consists in two machines:
+- ~wordpress-db~   :: A machine that contains the MySQL database for
+     Wordpress.
+- ~wordpress-app~  :: A machine that contains a web server that serves
+     the Wordpress CMS.
+
+The directory ~rsc/lib~ provides bash scripts to deploy the MySQL
+database and the web server. As the DevOps of OPH -- Online Polytech
+Hosting -- your job is to automatize the deployment of a Wordpress on
+your OpenStack. See the bash scripts in [[*Appendix][appendix]] for more information.
+Also, [[*Clean the environment][clean your environment]] before going further.
+
+** Clean the environment
+When it comes the time to deal with real application, we cannot use
+cirros VMs anymore. A Cirros VM is good for testing because it starts
+fast and has a small memory footprint. However, do not expect to
+launch MySQL on a cirros.
+
+We are going to run several Debian9 VMs in this section. But, a
+Debian9 takes a lot more of resources to run. For this reason, you
+have to release all your resources before going further.
+
+First, delete already running VMs.
+#+BEGIN_SRC bash
+vagrant@openstack:~$ for vm in $(openstack server list -c Name -f value); do\
+  echo "Delete ${vm}...";\
+  openstack server delete "${vm}";\
+done
+#+END_SRC
+
+In the same manner, delete floating IPs.
+#+BEGIN_SRC bash
+vagrant@openstack:~$ for ip in $(openstack floating ip list -c "Floating IP Address" -f value); do\
+  echo "Delete ${ip}...";\
+  openstack floating ip delete "${ip}";\
+done
+#+END_SRC
+
+** Wordpress MySQL Database                                        :noexport:
 Start a VM with ~wordpress-db~ name, ~debian-9~ image, ~m1.small~
-flavor, ~private~ network and ~admin~ key-pair. Also add the next
-script with option ~--user-data=install-mariadb.sh~.
+flavor, ~private~ network and ~admin~ key-pair. Also, provision your
+VM with the next script thanks to the ~--user-data
+~/rsc/lib/install-mariadb.sh~ option.
 
+#+BEGIN_SRC bash
+openstack server create --wait --image debian-9\
+                               --flavor m1.small --network private\
+                               --key-name admin\
+                               --user-data ~/rsc/lib/install-mariadb.sh\
+                               wordpress-db
+#+END_SRC
 
+** Wordpress Application                                           :noexport:
+Start a VM with ~wordpress-app~ name, ~debian-9~ image, ~m1.small~
+flavor, ~private~ network and ~admin~ key-pair. Also, provision your
+VM with the next script thanks to the ~--user-data
+~/rsc/lib/install-wp.sh~ option.
 
+#+BEGIN_SRC bash
+openstack server create --wait --image debian-9\
+                               --flavor m1.small --network private\
+                               --key-name admin\
+                               --user-data ~/rsc/lib/install-wp.sh\
+                               wordpress-app
+#+END_SRC
 
+Then, attach a floating ip to that VM.
+#+BEGIN_SRC bash
+vagrant@openstack:~$ openstack server add floating ip\
+  wordpress-wp\
+  $(openstack floating ip create public -c floating_ip_address -f value)
+#+END_SRC
 
- #+BEGIN_SRC bash
-. ~/current/admin-openrc
+* Appendix
+** Installs MariaDB on Debian 9
+#+INCLUDE: "./lib/install-mariadb.sh" src bash
 
+** Installs Wordpress on Debian 9
+#+INCLUDE: "./lib/install-wp.sh" src bash
 
-OS_PROJECT_NAME=${1:OS_PROJECT_NAME}
-
-
-openstack project create ${PROJECT} --parent admin --or-show
-openstack role add --project ${PROJECT} --user admin admin
-
-openstack server create --wait\
-                        --key-name admin\
-                        --image debian-9\
-                        --flavor m1.small\
-                        --network private\
-                        wordpress-db
-
-openstack server ssh --os-project-name ${PROJECT}
-                     --address-type tunnel
-                     wordpress-db
-
-# http://www.itzgeek.com/how-tos/linux/debian/how-to-install-mariadb-on-debian-9.html
-sudo apt-get -y install mariadb-server mariadb-client
-
-
-openstack server create --os-project-name ${PROJECT}\
-                        --wait\
-                        --key-name admin\
-                        --image debian-9\
-                        --flavor m1.small\
-                        --network tunnel\
-                        wordpress
-
-# https://codex.wordpress.org/Installing_WordPress#Famous_5-Minute_Installation
-
-# https://linuxconfig.org/how-to-install-wordpress-on-debian-9-stretch-linux
-
-
- #+END_SRC
 * Footnotes
 
+[fn:wordpress] https://wordpress.org/
 [fn:devstack] https://docs.openstack.org/devstack/latest/
 [fn:puppet] https://docs.openstack.org/puppet-openstack-guide/latest/
 [fn:kolla-ansible] https://docs.openstack.org/developer/kolla-ansible/

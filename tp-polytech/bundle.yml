@@ -37,19 +37,25 @@
     become: true
 
   - name: Download cirros into /home/vagrant
-    get_url:
-      url: http://download.cirros-cloud.net/0.3.5/cirros-0.3.5-x86_64-disk.img
+    # get_url:
+    #   url: http://download.cirros-cloud.net/0.3.5/cirros-0.3.5-x86_64-disk.img
+    #   dest: /home/vagrant/cirros.qcow2
+    copy:
+      src: cirros-0.3.5-x86_64-disk.img
       dest: /home/vagrant/cirros.qcow2
 
-  # - name: Download debian-9 into /home/vagrant (see, https://cdimage.debian.org/cdimage/openstack/current-9/)
-  #   get_url:
-  #     url: https://cdimage.debian.org/cdimage/openstack/current-9/debian-9-openstack-amd64.qcow2
-  #     dest: /home/vagrant/debian-9.qcow2
-
-  - name: Copy the Arch Linux on the system
+  - name: Download debian-9 into /home/vagrant (see, https://cdimage.debian.org/cdimage/openstack/current-9/)
+    # get_url:
+    #   url: https://cdimage.debian.org/cdimage/openstack/current-9/debian-9-openstack-amd64.qcow2
+    #   dest: /home/vagrant/debian-9.qcow2
     copy:
-      src: arch.qcow2
-      dest: /home/vagrant/arch.qcow2
+      src: debian-9-openstack-amd64.qcow2
+      dest: /home/vagrant/debian-9.qcow2
+
+  # - name: Copy the Arch Linux on the system
+  #   copy:
+  #     src: arch.qcow2
+  #     dest: /home/vagrant/arch.qcow2
 
   # - name: Download enos into /opt
   #   git:
@@ -99,10 +105,18 @@
         - "Follow bootstrapping with:"
         - "vagrant ssh -- tail -f /tmp/enos-bootstrap.log"
 
-  - name: Call enos deploy
+  - name: Call enos up
     shell: |
       . /home/vagrant/enos-venv/bin/activate
-      enos deploy -f rsc/reservation.yml 2>&1 > /tmp/enos-bootstrap.log
+      enos up -f rsc/reservation.yml 2>&1 > /tmp/enos-bootstrap.log
+    args:
+      chdir: /home/vagrant
+      creates: /tmp/enos-deployed
+
+  - name: Call enos os
+    shell: |
+      . /home/vagrant/enos-venv/bin/activate
+      enos os 2>&1 > /tmp/enos-bootstrap.log
     args:
       chdir: /home/vagrant
       creates: /tmp/enos-deployed
