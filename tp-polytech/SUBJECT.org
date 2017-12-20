@@ -41,7 +41,7 @@ are going to:
    - [[#play-with-openstack][Play with OpenStack]]
      - [[#unleash-the-operator-in-you][Unleash the Operator in You]]
      - [[#in-encryption-we-trust][In Encryption We Trust]]
-     - [[#the-art-of-provisionning][The Art of Provisionning]]
+     - [[#the-art-of-provisionning-a-vm][The Art of Provisionning a VM]]
  - [[#oph----online-polytech-hosting][OPH -- Online Polytech Hosting]]
    - [[#clean-the-environment][Clean the environment]]
  - [[#appendix][Appendix]]
@@ -414,7 +414,7 @@ of your SSH key in the =~/.ssh/authorized_keys= of the VM ({{{ie}}}
 note the ~--key-name admin~).
 #+BEGIN_SRC bash
 vagrant@openstack:~$ openstack server create --wait --image cirros\
-                               --flavor m1.small --network private\
+                               --flavor m1.tiny --network private\
                                --key-name admin cli-vm-adminkey
 #+END_SRC
 
@@ -434,8 +434,37 @@ A regular ~ssh~ command looks like ~ssh -i <identity-file> <name>@<server-ip>~. 
 : vagrant@openstack:~$ openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/private=(10\.0\.0\.[0-9]+).*/\1/g'
 #+END_NOTE
 
-*** The Art of Provisionning
-TODO
+*** The Art of Provisionning a VM
+Provisionning automatically installs software, alter configurations,
+and more on the machine as part of the boot process. On OpenStack, the
+provisionning is achieved thanks to Cloudinit[fn:cloudinit]. It lets
+you specify bash commands that will be executed on the VM as ~root~
+during the boot process.
+
+For instance, the following starts a Debian and installs ~figlet~ and
+~lolcat~ software on the VM.
+#+BEGIN_SRC bash
+vagrant@openstack:~$ PROVISION_FILE='/tmp/provision.sh'
+vagrant@openstack:~$ cat > "$PROVISION_FILE" << EOF
+apt update -q
+apt install -q -y figlet lolcat
+EOF
+vagrant@openstack:~$ openstack server create --wait --image debian-9\
+  --flavor m1.small --network private\
+  --key-name admin\
+  --user-data $PROVISION_FILE
+  cli-vm-provision
+#+END_SRC
+
+Then, you can jump on the VM and call the ~figlet~ and ~lolcat~
+software.
+#+BEGIN_SRC bash
+vagrant@openstack:~$ openstack server ssh cli-vm-provision \
+  --address-type private\
+  --login cirros\
+  --identity ~/admin.pem
+debian@cli-vm-provision:~$ figlet "The Art of Provisionning a VM" | lolcat
+#+END_SRC
 
 * OPH -- Online Polytech Hosting
 Wordpress[fn:wordpress] is the most popular content management system
@@ -525,6 +554,7 @@ vagrant@openstack:~$ openstack server add floating ip\
 
 * Footnotes
 
+[fn:cloudinit] https://cloud-init.io/
 [fn:wordpress] https://wordpress.org/
 [fn:devstack] https://docs.openstack.org/devstack/latest/
 [fn:puppet] https://docs.openstack.org/puppet-openstack-guide/latest/
