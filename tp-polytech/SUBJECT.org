@@ -425,7 +425,7 @@ vagrant@openstack:~$ openstack server ssh cli-vm-adminkey \
                                 --login cirros\
                                 --identity ~/admin.pem
 #+END_SRC
-: vagrant@openstack:~$ openstack
+
 Or directly with the ~ssh~ command
 : vagrant@openstack:~$ ssh -i ~/admin.pem cirros@$(openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/private=(10\.0\.0\.[0-9]+).*/\1/g')
 
