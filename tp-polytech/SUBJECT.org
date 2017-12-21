@@ -44,6 +44,7 @@ are going to:
      - [[#the-art-of-provisionning-a-vm][The Art of Provisionning a VM]]
  - [[#omh----online-polytech-hosting][omh -- Online Polytech Hosting]]
    - [[#clean-the-environment][Clean the environment]]
+ - [[#automatize-the-deployment-with-heat][Automatize the deployment with Heat]]
  - [[#appendix][Appendix]]
    - [[#installs-mariadb-on-debian-9][Installs MariaDB on Debian 9]]
    - [[#installs-wordpress-on-debian-9][Installs Wordpress on Debian 9]]
@@ -95,6 +96,7 @@ EnOS would also probably deploy OpenStack on a dedicated infrastructure
 Download the lab archive in your working directory.
 : host:~$ curl -O http://enos.irisa.fr/vagrant-box/omh-co.tar.gz
 : host:~$ tar xf omh-co.tar.gz
+: host:~$ cd omh-co
 
 The archive contains the Vagrant box, plus other resources useful for
 this lab.
@@ -428,8 +430,11 @@ vagrant@openstack:~$ openstack server create --wait --image cirros\
 
 Now you can access your VM using SSH without filling credentials.
 #+BEGIN_SRC bash
+vagrant@openstack:~$ openstack server add floating ip\
+  cli-vm-adminkey\
+  $(openstack floating ip create public -c floating_ip_address -f value)
+
 vagrant@openstack:~$ openstack server ssh cli-vm-adminkey \
-                                --address-type private\
                                 --login cirros\
                                 --identity ~/admin.pem
 #+END_SRC
@@ -471,16 +476,19 @@ EOF
 vagrant@openstack:~$ openstack server create --wait --image debian-9\
   --flavor m1.small --network private\
   --key-name admin\
-  --user-data $PROVISION_FILE
+  --user-data $PROVISION_FILE\
   cli-vm-provision
 #+END_SRC
 
 Then, you can jump on the VM and call the ~figlet~ and ~lolcat~
 software.
 #+BEGIN_SRC bash
+vagrant@openstack:~$ openstack server add floating ip\
+  cli-vm-provision\
+  $(openstack floating ip create public -c floating_ip_address -f value)
+
 vagrant@openstack:~$ openstack server ssh cli-vm-provision \
-  --address-type private\
-  --login cirros\
+  --login debian\
   --identity ~/admin.pem
 debian@cli-vm-provision:~$ figlet "The Art of Provisionning a VM" | lolcat
 #+END_SRC
@@ -569,6 +577,9 @@ Finally, you can reach WordPress.
 #+BEGIN_SRC bash
 vagrant@openstack:~$ lynx <floating_ip>/wp
 #+END_SRC
+
+* Automatize the deployment with Heat
+/Dim's slides/
 
 * Appendix
 ** Installs MariaDB on Debian 9
