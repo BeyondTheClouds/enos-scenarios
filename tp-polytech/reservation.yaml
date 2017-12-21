@@ -50,8 +50,9 @@ inventory: inventories/inventory.sample
 # A registry will be deployed and used during the deployment
 # Use a registry already deployed
 registry:
-  type: none
-
+  type: external
+  ip: 192.168.56.101
+  port: 5000
 
 # ############################################### #
 # Enos Customizations                             #

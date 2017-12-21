@@ -98,20 +98,13 @@ Download the lab archive in your working directory.
 : host:~$ tar xf omh-co.tar.gz
 : host:~$ cd omh-co
 
-The archive contains the Vagrant box, plus other resources useful for
-this lab.
-
-# Download the Polytech Vagrant box[fn:enos-box] in your working
-# directory.
-# : host:~$ mkdir oph-co
-# : host:~$ cd oph-co
-# : host:~/oph-co$ curl -O http://enos.irisa.fr/vagrant-box/rescom17.box
-
-#+BEGIN_NOTE
-The box contains EnOS together with all resources needed by EnOS to
-run OpenStack. The result is a relatively huge box (~3GB), but it
-contains everything you need to run EnOS almost offline.
-#+END_NOTE
+The archive contains:
+- enos            :: The EnOS tool to ease the deployment of OpenStack.
+- omh.box         :: The Vagrant box with all resources needed by EnOS
+     to run OpenStack. The result is a relatively huge (~3GB) box,
+     but it contains everything you need to run EnOS almost offline.
+- Vagrantfile :: The configuration file for the OpenStack lab machine.
+- lib :: A directory with some bash scripts useful for the lab.
 
 *** Prepare the lab VM
 Check the ~Vagrantfile~ as the following (substitute <editor> with your
