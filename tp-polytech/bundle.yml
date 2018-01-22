@@ -37,20 +37,20 @@
     become: true
 
   - name: Download cirros into /home/vagrant
-    get_url:
-      url: http://download.cirros-cloud.net/0.3.5/cirros-0.3.5-x86_64-disk.img
-      dest: /home/vagrant/cirros.qcow2
-    # copy:
-    #   src: cirros-0.3.5-x86_64-disk.img
+    # get_url:
+    #   url: http://download.cirros-cloud.net/0.3.5/cirros-0.3.5-x86_64-disk.img
     #   dest: /home/vagrant/cirros.qcow2
+    copy:
+      src: cirros-0.3.5-x86_64-disk.img
+      dest: /home/vagrant/cirros.qcow2
 
   - name: Download debian-9 into /home/vagrant (see, https://cdimage.debian.org/cdimage/openstack/current-9/)
-    get_url:
-      url: https://cdimage.debian.org/cdimage/openstack/current-9/debian-9-openstack-amd64.qcow2
-      dest: /home/vagrant/debian-9.qcow2
-    # copy:
-    #   src: debian-9-openstack-amd64.qcow2
+    # get_url:
+    #   url: https://cdimage.debian.org/cdimage/openstack/current-9/debian-9-openstack-amd64.qcow2
     #   dest: /home/vagrant/debian-9.qcow2
+    copy:
+      src: debian-9-openstack-amd64.qcow2
+      dest: /home/vagrant/debian-9.qcow2
 
   # - name: Copy local reservation.yaml files into /opt/enos/
   #   copy: src=reservation.yaml dest=/opt/enos
@@ -98,6 +98,7 @@
       enos deploy -f rsc/reservation.yml 2>&1 > /tmp/enos-bootstrap.log
     args:
       chdir: /home/vagrant
+      creates: /tmp/enos-deployed
 
   # - name: Call enos bench
   #   shell: |
@@ -107,11 +108,12 @@
   #     chdir: /opt/enos/
   #     creates: /tmp/enos-benched
 
-  - name: Clean enos
-    shell: |
-      . /home/vagrant/enos-venv/bin/activate
-      enos destroy  2>&1 >> /tmp/enos-bootstrap.log
-      rm -rf enos_* current
-      sudo rm -rf /root/rally_home /root/shaker_home
-    args:
-      chdir: /home/vagrant
+  # - name: Clean enos
+  #   shell: |
+  #     . /home/vagrant/enos-venv/bin/activate
+  #     enos destroy  2>&1 >> /tmp/enos-bootstrap.log
+  #     rm -rf enos_* current
+  #     sudo rm -rf /root/rally_home /root/shaker_home
+  #   args:
+  #     chdir: /home/vagrant
+  #     creates: /tmp/enos-destroyed

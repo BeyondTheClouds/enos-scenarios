@@ -71,6 +71,7 @@ kolla_ref: "stable/pike"
 kolla:
   kolla_base_distro: "centos"
   kolla_install_type: "source"
+  openstack_release: "5.0.1"
   docker_namespace: "beyondtheclouds"
   node_custom_config: "{{ cwd }}/rsc/patch"
   neutron_plugin_agent: "linuxbridge"
