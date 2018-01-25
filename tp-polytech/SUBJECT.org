@@ -1,6 +1,6 @@
 #+TITLE: Operate Resources in Public and Private Clouds
 #+TITLE: Thanks to OpenStack
-#+SUBTITLE: The case of OPH -- Online Polytech Hosting
+#+SUBTITLE: The case of OMH -- Online Mines Hosting
 #+AUTHOR: Ronan-Alexandre Cherrueau, Dimitri Pertin, Didier Iscovery
 #+EMAIL: {firstname.lastname}@inria.fr
 #+DATE: <2017-12-20 Wed>
@@ -20,7 +20,7 @@ are going to:
 - Deploy and configure OpenStack using
   EnOS[fn:enos-paper][fn:enos-code].
 - Operate this OpenStack to manage IaaS resources (e.g. boot VMs).
-- Start your OPH -- Online Polytech Hosting -- company that deploys
+- Start your OMH -- Online Mines Hosting -- company that deploys
   Wordpress as a Service.
 - Automatize all the stuff (i.e., manage your cloud from the sofa!)
 #+END_abstract
@@ -42,7 +42,7 @@ are going to:
      - [[#unleash-the-operator-in-you][Unleash the Operator in You]]
      - [[#in-encryption-we-trust][In Encryption We Trust]]
      - [[#the-art-of-provisionning-a-vm][The Art of Provisionning a VM]]
- - [[#oph----online-polytech-hosting][OPH -- Online Polytech Hosting]]
+ - [[#omh----online-polytech-hosting][omh -- Online Polytech Hosting]]
    - [[#clean-the-environment][Clean the environment]]
  - [[#appendix][Appendix]]
    - [[#installs-mariadb-on-debian-9][Installs MariaDB on Debian 9]]
@@ -60,7 +60,7 @@ openstack) where EnOS[fn:enos-paper][fn:enos-code] is installed. EnOS
 is a holistic framework leveraging containers to conduct easy and
 reproducible evaluations of different OpenStack configurations. In
 particular, EnOS helps you in deploying a real OpenStack infrastructure,
-stressing it and getting feedback. In the following, we gonna use EnOS
+stressing it and getting feedbacks. In the following, we gonna use EnOS
 to easily deploy OpenStack inside the virtual machine.
 
 The following depicts the status of the different components in play
@@ -91,15 +91,14 @@ EnOS would also probably deploy OpenStack on a dedicated infrastructure
 #+END_NOTE
 
 *** Get the base box
-Download the Polytech Vagrant box[fn:enos-box] in your working
-directory.
-: host:~$ mkdir oph-co
-: host:~$ cd oph-co
-: host:~/oph-co$ curl -O http://enos.irisa.fr/vagrant-box/polytech.box
+Download the Vagrant box[fn:enos-box] in your working directory.
+: host:~$ mkdir omh-co
+: host:~$ cd omh-co
+: host:~/omh-co$ curl -O http://enos.irisa.fr/vagrant-box/tp.box
 
 #+BEGIN_NOTE
 The box contains EnOS together with all resources needed by EnOS to
-run OpenStack. The result is a relatively huge box (~6GB), but it
+run OpenStack. The result is a relatively huge box (~3GB), but it
 contains everything you need to run EnOS almost offline.
 #+END_NOTE
 
@@ -108,13 +107,13 @@ While the box is downloading, you can proceed with the next section.
 *** Prepare the lab VM
 Create a ~Vagrantfile~ as the following (substitute <editor> with your
 favorite editor):
-: host:~/oph-co$ <editor> Vagrantfile
+: host:~/omh-co$ <editor> Vagrantfile
 
 #+BEGIN_SRC ruby
-# oph-co/Vagrantfile content
+# omh-co/Vagrantfile content
 Vagrant.configure("2") do |config|
   # Location of the VM image
-  config.vm.box = "file://./polytech.box"
+  config.vm.box = "file://./tp.box"
 
   # Network configuration
   config.vm.hostname = "openstack"
@@ -123,7 +122,7 @@ Vagrant.configure("2") do |config|
   config.vm.network :private_network, ip: "192.168.142.127"
   config.vm.network :private_network, ip: "192.168.143.127"
 
-  # Synchronised `host:~/oph-co` with `openstack:~/rsc`
+  # Synchronised `host:~/omh-co` with `openstack:~/rsc`
   config.vm.synced_folder "./", "/home/vagrant/rsc",
      owner: "vagrant",
      group: "vagrant"
@@ -132,6 +131,7 @@ Vagrant.configure("2") do |config|
   config.vm.provider "virtualbox" do |vb|
     vb.cpus = 4
     vb.memory = 6144
+    vb.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"]
   end
 end
 #+END_SRC
@@ -143,10 +143,10 @@ can refer to the official documentation[fn:vagrantfile].
 
 *** Start the lab VM
 Start the lab VM :
-: host:~/oph-co$ vagrant up --provision
+: host:~/omh-co$ vagrant up --provision
 
 SSH into the lab VM :
-: host:~/oph-co$ vagrant ssh
+: host:~/omh-co$ vagrant ssh
 
 ** Validate the setup
 The EnOS tool is already installed in =~/rsc/enos=. To be sure that
@@ -224,7 +224,7 @@ states the OpenStack resources you want to measure together with their
 topology. A configuration could say, "Deploy a basic OpenStack on a
 single node", or "Put OpenStack control services on ClusterA and
 compute services on ClusterB", but also "Deploy each OpenStack
-services on a dedicated node and add WAN network latency between
+services on a dedicated node and add WAN network latencies between
 them". So that EnOS can deploy such OpenStack over your testbed and
 run performance analysis.
 
@@ -244,16 +244,21 @@ the lab machine using a special provider we call static. You can read
 that configuration in the lab vm with:
 : vagrant@openstack:~$ less ~/rsc/reservation.yaml
 
+# This file deserves some explanations.
+# Shall we stop here and explain the three groups (control, network, compute)
+#     used in this config file (maybe presented during the lecture?).
+# Say that groups are mapped to OpenStack services in inventory.
+
 ** Deploy OpenStack
-EnOS manages all the aspect of an OpenStack deployment by calling
+EnOS manages all the aspects of an OpenStack deployment by calling
 ~enos deploy~. Concretely, the ~deploy~ phase first gets resources on
-your testbed following your configuration description. Then,
-provisions these resources with Docker. And finally, starts each
+your testbed following your configuration description. Then, it
+provisions these resources with Ansible. And finally, it starts each
 OpenStack services (e.g. Keystone, Nova, Neutron, ...) inside a
 dedicated Docker container.
 
 Launch the deployment with:
-: vagrant@openstack:~$ enos deploy -f rsc/reservation.yaml
+: vagrant@openstack:~$ enos deploy -f ~/rsc/reservation.yaml
 
 Then, observe EnOS deploying containers from another terminal of your
 VM with:
@@ -293,7 +298,7 @@ command line interface 😄.
 
 *** Unleash the Operator in You
 OpenStack provides a command line interface to operate your Cloud. But
-before using it, you need first set your environment with OpenStack
+before using it, you need to set your environment with the OpenStack
 credentials, so that the command line won't bother you by requiring
 credentials each time.
 
@@ -330,7 +335,7 @@ gives you a selection of the most often used commands to operate your Cloud:
 - Start a new VM :: ~openstack server create --image <image-name> --flavor <flavor-name> --nic net-id=<net-id> <vm-name>~
 - View VMs logs :: ~openstack console log show <vm-name>~
 
-Using all these commands, you can use the cli to start a new tiny
+Using all these commands, you can use the CLI to start a new tiny
 cirros VM called ~cli-vm~:
 #+BEGIN_EXAMPLE
 vagrant@openstack:~$ openstack server create\
@@ -340,7 +345,7 @@ vagrant@openstack:~$ openstack server create\
   cli-vm
 #+END_EXAMPLE
 
-And then display information about your VM with the following command.
+Then, display the information about your VM with the following command:
 : vagrant@openstack:~$ openstack server show cli-vm
 
 Note in particular the status of your VM. This status will go from
@@ -349,24 +354,13 @@ Note in particular the status of your VM. This status will go from
 are experiencing hard times with your infrastructure.
 
 With the previous ~openstack server create~ command, the VM boots with
-a private IP. Private IPs are used for communication between VMs,
-meaning you cannot ping your VM from the lab machine. Network lovers
-will find a challenge here: try to ping the VM from the lab machine.
-For the others, you have to manually affect a floating IP to your
-machine if you want it to be pingable from the lab.
-#+BEGIN_EXAMPLE
-vagrant@openstack:~$ openstack server add floating ip\
-  cli-vm\
-  $(openstack floating ip create public -c floating_ip_address -f value)
-#+END_EXAMPLE
-
-Then, ask for the status of your VM and its IPs with:
+a private IP. When the state is ~ACTIVE~, wait one minute or two, the time
+for the VM to boot.
+You can ask for the status of your VM and its IPs with:
 : vagrant@openstack:~$ openstack server show cli-vm -c status -c addresses
-
-When the state is ~ACTIVE~, wait one minute or two, the time for the VM
-to boot. Then you can ping it on its floating IP and SSH on it:
-: vagrant@openstack:~$ ping <floating-ip> # floating-ip is 192.168.143.*
-: vagrant@openstack:~$ ssh -l cirros <floating-ip>
+Once you got its private IP, you can ping and SSH on it:
+: vagrant@openstack:~$ ping <private-ip>
+: vagrant@openstack:~$ ssh -l cirros <private-ip>
 
 #+BEGIN_NOTE
 You can check that the VM finished to boot by looking at its logs with
@@ -387,22 +381,31 @@ cli-vm login:
 #+END_NOTE
 
 Before going to the next section, feel free to play around with the
-~openstack~ cli and Horizon. For instance, list all features offered
-by Nova with ~openstack server --help~ and try to figure out how to
-SSH on ~cli-vm~ using its name rather than its floating IP.
+~openstack~ CLI and Horizon. For instance, list all the features offered
+by Nova with ~openstack server --help~. Here are some exercises for you, find
+the CLI commands for the following actions:
+1. SSH on ~cli-vm~ using its name rather than its private IP;
+2. Attach ~cli-vm~ to the public network (check afterwards on the machine the
+   network interfaces);
+3. Create a volume;
+4. Attach this volume to ~cli-vm~ and mount afterwards this volume on the
+   machine;
+5. Create a snapshot of ~cli-vm~;
+6. Delete ~cli-vm~;
+7. Boot a new machine ~cli-vm-clone~ from the snapshot.
 
 # : openstack server ssh cli-vm --address-type private --login cirros
 
 *** In Encryption We Trust
 Any cirros VMs share the same credentials ({{{ie}}} ~cirros~,
-~cubswin~) which is a security problem. As a IaaS DevOps, you want
+~cubswin~) which is a security problem. As an IaaS DevOps, you want
 that only some clients can SSH on some VMs. Fortunately, OpenStack
 helps with the management of SSH keys. OpenStack can generate a SSH
 key and push the public counterpart on the VM. Therefore, doing a
 ~ssh~ on the VM will use the SSH key instead of asking the client to
 fill the credentials.
 
-Make a SSH key and store the private counterpart in =~/admin.pem=.
+Make an SSH key and store the private counterpart in =~/admin.pem=.
 Then, give that file the correct permission access.
 : vagrant@openstack:~$ openstack keypair create --private-key ~/admin.pem admin
 : vagrant@openstack:~$ chmod 600 admin.pem
@@ -432,15 +435,26 @@ A regular ~ssh~ command looks like ~ssh -i <identity-file> <name>@<server-ip>~. 
 : vagrant@openstack:~$ openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/private=(10\.0\.0\.[0-9]+).*/\1/g'
 #+END_NOTE
 
-*** The Art of Provisionning a VM
-Provisionning automatically installs software, alters configurations,
-and more on the machine as part of the boot process. On OpenStack, the
-provisionning is achieved thanks to Cloudinit[fn:cloudinit]. It lets
-you specify bash commands that will be executed on the VM as ~root~
-during the boot process.
+*** The Art of Provisioning a VM
+Provisioning is the process that automatically installs software, alters
+configurations, and more on the machine as part of the boot process. On
+OpenStack, provisioning is achieved thanks to Cloudinit[fn:cloudinit]. It is
+a program that runs at the boot time to customize the VM.
 
-For instance, the following starts a Debian and installs ~figlet~ and
-~lolcat~ software on the VM.
+You have already used Cloudinit without even knowing it! The previous command
+~openstack server create~ with the ~--identity~ parameter tells OpenStack to
+make the public counterpart of the SSH key available to the VM.
+When the VM boots for the first time, Cloudinit is (among other tasks) in
+charge of fetching this public SSH key from OpenStack, and copy it 
+to =~/.ssh/authorized_keys=. Beyond that, Cloudinit is in charge of many
+aspects of the VM customization like mounting volume, resizing file
+systems or setting an hostname (the list of Cloudinit modules can be found
+here:[fn:cloudinit_modules]). Furthermore, Cloudinit is able to run a bash
+script that will be executed on the VM as ~root~ during the boot process.
+
+To tell OpenStack to make this script reachable from our VM, we use a
+mechanism called ~user-data~. For instance, the following starts a Debian and
+installs ~figlet~ and ~lolcat~ software on the VM:
 #+BEGIN_SRC bash
 vagrant@openstack:~$ PROVISION_FILE='/tmp/provision.sh'
 vagrant@openstack:~$ cat > "$PROVISION_FILE" << EOF
@@ -464,7 +478,7 @@ vagrant@openstack:~$ openstack server ssh cli-vm-provision \
 debian@cli-vm-provision:~$ figlet "The Art of Provisionning a VM" | lolcat
 #+END_SRC
 
-* OPH -- Online Polytech Hosting
+* omh -- Online Polytech Hosting
 Wordpress[fn:wordpress] is the most popular content management system
 (CMS) in use on the Web. People use it to create websites, blogs or
 applications. It is open-source, and based on PHP and MySQL under the
@@ -477,7 +491,7 @@ A common Wordpress deployment consists in two machines:
      the Wordpress CMS.
 
 The directory ~rsc/lib~ provides bash scripts to deploy the MySQL
-database and the web server. As the DevOps of OPH -- Online Polytech
+database and the web server. As the DevOps of omh -- Online Polytech
 Hosting -- your job is to automatize the deployment of a Wordpress on
 your OpenStack. See the bash scripts in [[*Appendix][appendix]] for more information.
 Also, [[*Clean the environment][clean your environment]] before going further.
@@ -559,6 +573,7 @@ vagrant@openstack:~$ lynx <floating_ip>/wp
 * Footnotes
 
 [fn:cloudinit] https://cloud-init.io/
+[fn:cloudinit_modules] http://cloudinit.readthedocs.io/en/latest/topics/modules.html
 [fn:wordpress] https://wordpress.org/
 [fn:devstack] https://docs.openstack.org/devstack/latest/
 [fn:puppet] https://docs.openstack.org/puppet-openstack-guide/latest/
