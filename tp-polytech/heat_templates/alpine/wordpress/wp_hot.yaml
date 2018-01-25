@@ -1,0 +1,118 @@
+
+heat_template_version: 2017-09-01
+
+description: >
+    Template to deploy an HTTP server that serves WordPress.
+    Requires an SQL database, whose IP address must be provided as a parameter.
+
+
+parameters:
+    # Parameters used to describe the server resource
+    ServerName:
+        label: Name of the Server
+        type: string
+        default: wordpress
+    ServerKeyName:
+        label: Name of the SSH key to provide to cloud-init
+        type: string
+        default: admin
+    ServerImage:
+        label: Name of the image used to boot the server
+        type: string
+        default: alpine
+    ServerFlavor:
+        label: Name of the flavor used to boot the server
+        type: string
+        default: m1.tiny
+    ServerNetwork:
+        label: Name of the network the server will be linked to
+        type: string
+        default: private
+
+    # Parameters used in the cloud-init script to install & configure the WordPress app
+    # The following parameters are given by the user:
+    DBName:
+        label: (REQUIRED) Name of the database to use
+        type: string
+    DBUser:
+        label: Name of the database user
+        type: string
+        default: silr
+    DBPassword:
+        label: Password to access the database
+        type: string
+        default: silr
+    # This parameter is returned by Heat Engine when the mysql_instance boots
+    DBHost:
+        label: (REQUIRED) IP address of the SQL server
+        type: string
+
+resources:
+    wordpress_instance:
+        type: OS::Nova::Server
+        properties:
+            name: { get_param: ServerName }
+            key_name: { get_param: ServerKeyName }
+            image: { get_param: ServerImage }
+            flavor: { get_param: ServerFlavor }
+            networks:
+                - network: { get_param: ServerNetwork }
+            user_data_format: RAW
+            user_data:
+                str_replace:
+                    params:
+                        ${DB_NAME}: { get_param: DBName }
+                        ${DB_USER}: { get_param: DBUser }
+                        ${DB_PASSWORD}: { get_param: DBPassword }
+                        ${DB_HOST}: { get_param: DBHost }
+                    template: |
+                        #!/usr/bin/env ash
+                        # Install and configure Lighttp to serve Wordpress for Alpine.
+
+                        sed -i '/3.7\/community/s/^#//g' /etc/apk/repositories
+                        sed -i '/edge\/community/s/^#//g' /etc/apk/repositories
+                        sed -i '/edge\/testing/s/^#//g' /etc/apk/repositories
+
+                        apk update
+
+                        apk upgrade
+
+                        apk add lighttpd php5-common php5-iconv php5-json php5-gd\
+                            php5-curl php5-xml php5-pgsql php5-imap php5-cgi fcgi
+                        apk add php5-pdo php5-pdo_pgsql php5-soap php5-xmlrpc\
+                            php5-posix php5-mcrypt php5-gettext php5-ldap\
+                            php5-ctype php5-dom
+
+                        sed -i '/mod_fastcgi.conf/s/^#/ /' /etc/lighttpd/lighttpd.conf
+                        sed -i 's/php-cgi/php-cgi5/' /etc/lighttpd/mod_fastcgi.conf
+
+                        rc-service lighttpd start && rc-update add lighttpd default
+
+                        apk add wget php5-mysql mysql-client php5-zlib
+
+                        rc-service lighttpd restart
+
+                        mkdir -p /usr/share/webapps/
+                        cd /usr/share/webapps/
+                        wget http://wordpress.org/latest.tar.gz
+                        tar -xzvf latest.tar.gz
+                        rm latest.tar.gz
+
+                        cp ./wordpress/wp-config-sample.php ./wordpress/wp-config.php
+                        sed -i 's/database_name_here/${DB_NAME}/' ./wordpress/wp-config.php
+                        sed -i 's/username_here/${DB_USER}/' ./wordpress/wp-config.php
+                        sed -i 's/password_here/${DB_PASSWORD}/' ./wordpress/wp-config.php
+                        sed -i 's/localhost/${DB_HOST}/' ./wordpress/wp-config.php
+
+                        chown -R lighttpd:nogroup /usr/share/webapps/
+                        ln -s /usr/share/webapps/wordpress/ /var/www/localhost/htdocs/wordpress
+
+    floating_ip:
+        type: OS::Nova::FloatingIP
+        properties:
+            pool: public
+    association:
+        type: OS::Nova::FloatingIPAssociation
+        properties:
+            floating_ip: { get_resource: floating_ip }
+            server_id: { get_resource: wordpress_instance }
