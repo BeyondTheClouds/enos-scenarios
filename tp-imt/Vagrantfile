@@ -1,0 +1,23 @@
+Vagrant.configure("2") do |config|
+  # Location of the VM image
+  config.vm.box = "file://./omh.box"
+
+  # Network configuration
+  config.vm.hostname = "openstack"
+  # the lab vm is started with 2 extra network interfaces with
+  # the specified ip addresses
+  config.vm.network :private_network, ip: "192.168.142.127"
+  config.vm.network :private_network, ip: "192.168.143.127"
+
+  # Synchronised `host:~/oph-co` with `openstack:~/rsc`
+  config.vm.synced_folder "./", "/home/vagrant/rsc",
+     owner: "vagrant",
+     group: "vagrant"
+
+  # Resource configuration
+  config.vm.provider "virtualbox" do |vb|
+    vb.cpus = 4
+    vb.memory = 6144
+    vb.customize ["modifyvm", :id, "--nicpromisc3", "allow-all"]
+  end
+end
