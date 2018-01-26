@@ -79,4 +79,4 @@ kolla:
   enable_trove: "no"
   enable_designate: "no"
   enable_octavia: "no"
-  enable_heat: "no"
+  enable_heat: "yes"

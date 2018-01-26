@@ -1,0 +1,205 @@
+
+heat_template_version: 2017-09-01
+
+description: >
+    Template to deploy an HTTP server that serves WordPress.
+    Requires an SQL database, whose IP address must be provided as a parameter.
+
+
+parameters:
+    # Parameters used to describe the server resource
+    ServerName:
+        label: Name of the Server
+        type: string
+        default: wordpress
+    ServerKeyName:
+        label: Name of the SSH key to provide to cloud-init
+        type: string
+        default: admin
+    ServerImage:
+        label: Name of the image used to boot the server
+        type: string
+        default: alpine
+    ServerFlavor:
+        label: Name of the flavor used to boot the server
+        type: string
+        default: m1.tiny
+    ServerNetwork:
+        label: Name of the network the server will be linked to
+        type: string
+        default: private
+
+    # Parameters used in the cloud-init script to install & configure the WordPress app
+    # The following parameters are given by the user:
+    DBName:
+        label: (REQUIRED) Name of the database to use
+        type: string
+    DBUser:
+        label: Name of the database user
+        type: string
+        default: silr
+    DBPassword:
+        label: Password to access the database
+        type: string
+        default: silr
+    # This parameter is returned by Heat Engine when the mysql_instance boots
+    DBHost:
+        label: (REQUIRED) IP address of the SQL server
+        type: string
+
+resources:
+    wordpress_instance:
+        type: OS::Nova::Server
+        properties:
+            name: { get_param: ServerName }
+            key_name: { get_param: ServerKeyName }
+            image: { get_param: ServerImage }
+            flavor: { get_param: ServerFlavor }
+            networks:
+                - network: { get_param: ServerNetwork }
+            user_data_format: RAW
+            user_data:
+                str_replace:
+                    params:
+                        ${DB_NAME}: { get_param: DBName }
+                        ${DB_USER}: { get_param: DBUser }
+                        ${DB_PASSWORD}: { get_param: DBPassword }
+                        ${DB_HOST}: { get_param: DBHost }
+                    template: |
+                        #!/usr/bin/env ash
+                        # Install and configure Lighttp to serve Wordpress for Alpine.
+
+                        sed -i '/3.7\/community/s/^#//g' /etc/apk/repositories
+
+                        apk update
+
+                        # Set Nginx
+                        apk add nginx                       
+
+                        adduser -D -g 'www' www
+                        mkdir /www
+                        chown -R www:www /var/lib/nginx
+                        chown -R www:www /www
+
+                        cat << EOF > /etc/nginx/nginx.conf
+                        user                            www;
+                        worker_processes                1;
+
+                        error_log                       /var/log/nginx/error.log warn;
+                        pid                             /var/run/nginx.pid;
+
+                        events {
+                            worker_connections          1024;
+                        }
+
+                        http {
+                            include                     /etc/nginx/mime.types;
+                            default_type                application/octet-stream;
+                            sendfile                    on;
+                            access_log                  /var/log/nginx/access.log;
+                            keepalive_timeout           3000;
+                            server {
+                                listen                  80;
+                                root                    /www;
+                                index                   index.html index.htm index.php;
+                                server_name             localhost;
+                                client_max_body_size    32m;
+                                error_page              500 502 503 504  /50x.html;
+                                location = /50x.html {
+                                    root              /var/lib/nginx/html;
+                                }
+                                location ~ \.php$ {
+                                    fastcgi_pass      127.0.0.1:9000;
+                                    fastcgi_index     index.php;
+                                    include           fastcgi.conf;
+                                }
+                            }
+                        }
+                        EOF
+
+                        cat << EOF > /www/index.html
+                        <!DOCTYPE html>
+                        <html lang="en">
+                        <head>
+                            <meta charset="utf-8" />
+                            <title>HTML5</title>
+                        </head>
+                        <body>
+                            Server is online
+                        </body>
+                        </html>
+                        EOF
+
+                        # Set PHP
+                        apk add php5-fpm php5-mcrypt php5-soap php5-openssl php5-gmp php5-pdo_odbc php5-json php5-dom php5-pdo php5-zip php5-mysql php5-mysqli php5-sqlite3 php5-apcu php5-pdo_pgsql php5-bcmath php5-gd php5-odbc php5-pdo_mysql php5-pdo_sqlite php5-gettext php5-xmlreader php5-xmlrpc php5-bz2 php5-mssql php5-iconv php5-pdo_dblib php5-curl php5-ctype
+
+                        PHP_FPM_USER="www"
+                        PHP_FPM_GROUP="www"
+                        PHP_FPM_LISTEN_MODE="0660"
+                        PHP_MEMORY_LIMIT="512M"
+                        PHP_MAX_UPLOAD="50M"
+                        PHP_MAX_FILE_UPLOAD="200"
+                        PHP_MAX_POST="100M"
+                        PHP_DISPLAY_ERRORS="On"
+                        PHP_DISPLAY_STARTUP_ERRORS="On"
+                        PHP_ERROR_REPORTING="E_COMPILE_ERROR\|E_RECOVERABLE_ERROR\|E_ERROR\|E_CORE_ERROR"
+                        PHP_CGI_FIX_PATHINFO=0
+
+                        sed -i "s|;listen.owner\s*=\s*nobody|listen.owner = ${PHP_FPM_USER}|g" /etc/php5/php-fpm.conf
+                        sed -i "s|;listen.group\s*=\s*nobody|listen.group = ${PHP_FPM_GROUP}|g" /etc/php5/php-fpm.conf
+                        sed -i "s|;listen.mode\s*=\s*0660|listen.mode = ${PHP_FPM_LISTEN_MODE}|g" /etc/php5/php-fpm.conf
+                        sed -i "s|user\s*=\s*nobody|user = ${PHP_FPM_USER}|g" /etc/php5/php-fpm.conf
+                        sed -i "s|group\s*=\s*nobody|group = ${PHP_FPM_GROUP}|g" /etc/php5/php-fpm.conf
+                        sed -i "s|;log_level\s*=\s*notice|log_level = notice|g" /etc/php5/php-fpm.conf #uncommenting line 
+
+                        sed -i "s|display_errors\s*=\s*Off|display_errors = ${PHP_DISPLAY_ERRORS}|i" /etc/php5/php.ini
+                        sed -i "s|display_startup_errors\s*=\s*Off|display_startup_errors = ${PHP_DISPLAY_STARTUP_ERRORS}|i" /etc/php5/php.ini
+                        sed -i "s|error_reporting\s*=\s*E_ALL & ~E_DEPRECATED & ~E_STRICT|error_reporting = ${PHP_ERROR_REPORTING}|i" /etc/php5/php.ini
+                        sed -i "s|;*memory_limit =.*|memory_limit = ${PHP_MEMORY_LIMIT}|i" /etc/php5/php.ini
+                        sed -i "s|;*upload_max_filesize =.*|upload_max_filesize = ${PHP_MAX_UPLOAD}|i" /etc/php5/php.ini
+                        sed -i "s|;*max_file_uploads =.*|max_file_uploads = ${PHP_MAX_FILE_UPLOAD}|i" /etc/php5/php.ini
+                        sed -i "s|;*post_max_size =.*|post_max_size = ${PHP_MAX_POST}|i" /etc/php5/php.ini
+                        sed -i "s|;*cgi.fix_pathinfo=.*|cgi.fix_pathinfo= ${PHP_CGI_FIX_PATHINFO}|i" /etc/php5/php.ini
+
+                        apk add tzdata
+                        TIMEZONE="Europe/Helsinki"$
+                        cp /usr/share/zoneinfo/${TIMEZONE} /etc/localtime
+                        echo "${TIMEZONE}" > /etc/timezone
+                        sed -i "s|;*date.timezone =.*|date.timezone = ${TIMEZONE}|i" /etc/php5/php.ini
+
+                        echo "<?php phpinfo();" > /www/index.php
+
+                        apk add wget php5-mysql mysql-client php5-zlib
+
+                        rc-service nginx start && rc-update add nginx default
+                        rc-service php-fpm start && rc-update add php-fpm default
+
+                        cd /www/
+                        wget http://wordpress.org/latest.tar.gz
+                        tar -xzvf latest.tar.gz
+                        rm latest.tar.gz
+
+                        cat << EOF > ./wordpress/wp-config.php
+                        <?php
+                        define('DB_NAME', '${DB_NAME}');
+                        define('DB_USER', '${DB_USER}');
+                        define('DB_PASSWORD', '${DB_PASSWORD}');
+                        define('DB_HOST', '${DB_HOST}');
+                        define('WP_CONTENT_DIR', '/usr/share/webapps/wordpress/wp-content');
+                        ?>
+                        EOF
+
+                        chown -R www:www /www
+
+                        rc-service nginx restart
+                        rc-service php-fpm restart
+
+    floating_ip:
+        type: OS::Nova::FloatingIP
+        properties:
+            pool: public
+    association:
+        type: OS::Nova::FloatingIPAssociation
+        properties:
+            floating_ip: { get_resource: floating_ip }
+            server_id: { get_resource: wordpress_instance }
