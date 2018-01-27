@@ -2,3 +2,7 @@
 	path = tp-polytech/enos
 	url = https://github.com/rcherrueau/enos.git
 	branch = tp-polytech
+[submodule "tp-imt/enos"]
+	path = tp-imt/enos
+	url = git@github.com:rcherrueau/enos.git
+	branch = tp-imt
