@@ -1,0 +1,266 @@
+#+TITLE: Operate Resources in Public and Private Clouds
+#+TITLE: Thanks to OpenStack
+#+SUBTITLE: The case of OMH -- Online Mines Hosting
+#+AUTHOR: Ronan-Alexandre Cherrueau, Dimitri Pertin, Didier Iscovery
+#+EMAIL: {firstname.lastname}@inria.fr
+#+DATE: <2017-12-20 Wed>
+
+#+OPTIONS: ':t email:t toc:nil
+
+#+HTML_HEAD: <link id="pagestyle" rel="stylesheet" type="text/css" href="timeline.css"/>
+
+#+MACRO: eg /e.g./,
+#+MACRO: ie /i.e./,
+#+MACRO: i18n /$1/ (en anglais, $2)
+
+#+BEGIN_abstract
+OpenStack has become the de-facto solution to operate compute, network
+and storage resources in public and private clouds. In this lab, we
+are going to:
+- Deploy and configure OpenStack using
+  EnOS[fn:enos-paper][fn:enos-code].
+- Operate this OpenStack to manage IaaS resources (e.g. boot VMs).
+- Start your OMH -- Online Mines Hosting -- company that deploys
+  Wordpress as a Service.
+- Automatize all the stuff (i.e., manage your cloud from the sofa!)
+#+END_abstract
+
+#+TOC: headlines 3
+
+* Table of Contents                                          :TOC@3:noexport:
+- [[#requirements-and-setup][Requirements and Setup]]
+  - [[#environment][Environment]]
+    - [[#set-the-experimental-environment][Set the experimental environment]]
+- [[#footnotes][Footnotes]]
+
+* Requirements and Setup
+
+** Environment
+
+To follow the lab you'll need an OVH account [fn:ovh]. OVH is a French company
+providing Cloud computing and hosting services. Founded in 1999, its
+headquarters are located in Roubaix. OVH has provided us some vouchers that can
+be used to deploy resources during this session. You will quickly notice that
+OVH public Cloud is based on standard cloud technologies. More particularly, the
+infrastructure management is managed by OpenStack ;)
+
+For this lab, we are going to build a Platform as a Service (PaaS) over the OVH
+infrastructure. To that end, we will deploy our own OpenStack on OVH to manage
+the deployment and the management of real applications.
+
+During the last session, you deployed all the OpenStack services in a single
+virtual machine. Let's start gently by deploying OpenStack over two virtual
+machines. To that end, you will need first to set an experimental environment
+composed of two virtual machine (called os_controller_compute and os_compute)
+from the OVH public Cloud interface, interconnected by a private network. Since
+you are now familiar with EnOS[fn:enos-paper][fn:enos-code], we are going to run
+it from the first VM to deploy the OpenStack services on our OVH VMs.
+
+During the last session, we used EnOS to deploy the three following groups of
+OpenStack services in a single VM:
+- vagrant_machine:
+  + control;
+  + compute;
+  + network.
+ 
+Today, we are going to repeat this operation for the first OVH VM, and we will
+deploy only the compute services to the second one, as depicted here:
+- os_control_compute:
+  + control
+  + compute
+  + network
+- os_compute:
+  + compute
+
+The following depicts the status of the different components in play during the
+lab.
+
+#+BEGIN_EXAMPLE
++---------------------------------------+
+|          OVH Public Cloud             |
+|                                       |
+|                                       |
+|   +---------------------------+       |
+|   |  os_control_compute VM    |       |
+|   |     ~/rsc <- - - - - -  - - - - - - - - - -  EnOS sources & configuration files
+|   |                           |       |
+|   |  * docker container 1 +   |       |
+|   |  * docker container 2 +   |       |
+|   |  * ...                +- - - - - - - - - - - Docker containers launched by EnOS
+|   |  * docker container n +   |       |          (Openstack control/compute/network
+|   |                           |       |          services + third-party services)
+|   +---------------------------+       |
+
+|   +---------------------------+       |
+|   |       os_compute VM       |       |
+|   |                           |       |
+|   |  * docker container 1 +   |       |
+|   |  * docker container 2 +   |       |
+|   |  * ...                +- - - - - - - - - - - Docker containers launched by
+|   |  * docker container n +   |       |          EnOS (Openstack compute services
+|   |                           |       |          + third-party services)
+|   +---------------------------+       |
++---------------------------------------+
+#+END_EXAMPLE
+
+*** Set the experimental environment
+
+**** Create a new project
+
+Please be sure you have created an OVH account prior the session. Once you are
+logged in, reach the OVH public Cloud interface [fn:ovh]. Click on ~Order >
+Cloud project > Create the project~ (~Commander > Projet Cloud > Créer le
+projet~) to create a new project, by giving a name and the voucher provided by
+OVH. Mind that this project will only be active during our session. You can now
+access your project: ~Servers > 'ProjectName' > Infrastructure~.
+~Infrastructure~ will be the main panel for us during this session.
+
+**** Set the private network
+
+OVH provides their VMs with a public address which is reachable from the
+Internet. However, our VMs are going to communicate together so we would like to
+set a private network to that end. To create a virtual network, few steps are
+required [fn:ovh-vrack-doc]:
+1. Create a OVH vRack;
+2. Attach our new project to the vRack;
+3. Create a virtual network.
+
+The voucher enables you to create an OVH vRack for free during this session. Its
+creation requires an order which can take few minutes to be validated by OVH.
+
+Once it is created, you can reach the ~vRack~ panel and add your new project in
+it [fn:ovh-vrack]. Once it is added, go back to the ~Infrastructure~ panel.
+From here, you can notice that private network creation is now available.
+
+#+BEGIN_NOTE
+As discussed above, the OVH public Cloud is operated with OpenStack. The OVH web
+interface is similar to the Horizon you played with during the previous session.
+Creating a private network from this interface sends to the OVH OpenStack a
+request to create a private network. To convince you that the OVH public Cloud
+is powered by OpenStack, click on the ~OpenStack Client~ at the bottom of this
+interface to reach a terminal from which you can use the OpenStack CLI just like
+you did in our first session.
+#+END_NOTE
+
+Create a private network (using either the interface or the CLI) with the
+following characteristics:
+- address: 192.168.0.0
+- mask: 255.255.255.0
+- dhcp
+
+#+BEGIN_NOTE
+You can both validate the network creation from the web interface and from the
+CLI by typing: ~openstack network list~ and ~openstack network show
+<network_name>~.
+#+END_NOTE
+
+**** Create an SSH key pair
+
+Connection to the VMs are able through SSH whose authentication is based on
+keys. It is highly recommended to create a pair of keys that will be used only
+for this session. To that end you can type on your local machine:
+
+: ssh-keygen -t rsa -f ~/.ssh/id_tp_omh -P ''
+
+This commands creates two files:
+- ~~/.ssh.id_tp_omh~: the private counterpart of the SSH key pair;
+- ~~/.ssh.id_tp_omh.pub~: its public counterpart.
+
+**** Boot two virtual machines
+
+We can ask OVH to create virtual machines from its ~Infrastructure~ panel. From
+here click on ~Actions > Add a server~ and select the following characteristics:
+- Location: 'Gravelines (GRA3)';
+- Distribution: 'Debian-9';
+- Flavor: 'B2-7';
+- Public key: give a name and provide the content of ~./ssh/id_tp_omh.pub~;
+- Advanced options:
+  + Read and provide the script below as post-installation script;
+  + Link the machine to your private network.
+
+#+BEGIN_SRC bash
+#!/bin/bash
+
+# Update apt and install requirements / useful packages
+apt-get update
+apt-get install -y \
+    htop jq vim lynx \
+    git libffi-dev libssl-dev python-dev build-essential \
+    python-pip python-setuptools bridge-utils tcpdump
+
+# Dowload the tarball and extract it to the home directory
+wget -qO- http://enos.irisa.fr/tp-imt/tp2.tar.gz  | tar -xzv -C /home/debian
+
+pip install -e file:///home/debian/enos#egg=enos
+#+END_SRC
+
+After clicking on ~Launch now~, a new machine should appear in the interface.
+You can validate the VM is active with ~openstack server list~. Also try to ping
+and SSH to this machine:
+
+: local_host:~/ ssh -i ~/.ssh/id_tp_omh debian@<public_ip_os_control_compute>
+
+Boot the second machine similarly but provide the following post-installation
+script:
+
+#+BEGIN_SRC bash
+#!/bin/bash
+
+# Update apt and install requirements / useful packages
+apt-get update
+apt-get install -y \
+    htop jq vim lynx \
+    python-pip python-dev
+#+END_SRC
+
+We should copy the private counterpart of the SSH key pair on the first VM so
+that it can be used to ease the SSH connection to the second machine. To that
+end we use ~scp~ - type from your local machine:
+
+: local_host:~/ scp -i ~/.ssh/id_tp_omh ~/.ssh/id_tp_omh debian@<public_ip_os_control_compute>:/home/debian/.ssh/id_rsa
+
+Confirm you can SSH from ~os_control_compute~ to ~os_compute~:
+
+: local_host:~/ ssh -i ~/.ssh/id_tp_omh debian@<public_ip_os_control_compute>
+
+: os_control_compute:~/ ssh -i ~/.ssh/id_tp_omh debian@<private_ip_os_control_compute>
+
+* Footnotes
+
+[fn:ovh] https://www.ovh.com/fr/cloud/
+[fn:ovh-vrack] https://www.ovh.com/manager/cloud/index.html#/vrack
+[fn:ovh-vrack-doc] https://docs.ovh.com/fr/public-cloud/utiliser-le-vrack-et-les-reseaux-prives-avec-les-instances-public-cloud/https://docs.ovh.com/fr/public-cloud/utiliser-le-vrack-et-les-reseaux-prives-avec-les-instances-public-cloud/
+[fn:cloudinit] https://cloud-init.io/
+[fn:cloudinit_modules] http://cloudinit.readthedocs.io/en/latest/topics/modules.html
+[fn:wordpress] https://wordpress.org/
+[fn:devstack] https://docs.openstack.org/devstack/latest/
+[fn:puppet] https://docs.openstack.org/puppet-openstack-guide/latest/
+[fn:kolla-ansible] https://docs.openstack.org/developer/kolla-ansible/
+[fn:enos-paper] https://hal.inria.fr/hal-01415522v2
+[fn:enos-code] https://github.com/BeyondTheClouds/enos
+[fn:virtualbox-downloads] https://www.virtualbox.org/wiki/Downloads
+[fn:vagrant-downloads] https://www.vagrantup.com/downloads.html
+[fn:enos-box] http://enos.irisa.fr/vagrant-box/polytech.box
+[fn:enos-provider] https://enos.readthedocs.io/en/latest/provider.html
+[fn:enos-g5k-provider] https://enos.readthedocs.io/en/latest/provider/grid5000.html
+[fn:enos-vagrant-provider] https://enos.readthedocs.io/en/latest/provider/vagrant.html
+[fn:vagrantfile] https://www.vagrantup.com/docs/vagrantfile/index.html
+[fn:cadvisor] https://github.com/google/cadvisor
+[fn:collectd] https://collectd.org/
+[fn:grafana] https://grafana.com/
+[fn:rally] https://rally.readthedocs.io/en/latest/
+[fn:shaker] https://pyshaker.readthedocs.io/en/latest/
+[fn:rally-scenarios] https://github.com/openstack/rally/tree/master/rally/plugins/openstack/scenarios
+[fn:shaker-scenarios] https://github.com/openstack/shaker/tree/master/shaker/scenarios/openstack
+[fn:dvr] https://wiki.openstack.org/wiki/Neutron/DVR
+
+# Local Variables:
+# org-html-postamble: "<p class=\"author\">Author: %a</p>
+# <p class=\"email\">Email: %e</p>
+# <p class=\"github\">Find a typo, wanna make a proposition:
+#  <a href=\"https://github.com/BeyondTheClouds/enos-scenarios/issues/new?title=rescom17\">open an issue</a></p>
+# <p class=\"date\">Last modification: %C</p>
+# <p class=\"license\">This work is licensed under a <a rel=\"license\" href=\"http://creativecommons.org/licenses/by-sa/4.0/\">Creative Commons Attribution-ShareAlike 4.0 International License</a>.</p>
+# <p class=\"creator\">%c – theme by
+#  <a href=\"http://gongzhitaao.org/orgcss\">http://gongzhitaao.org/orgcss</a></p>"
+# End:
