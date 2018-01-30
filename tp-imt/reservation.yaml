@@ -1,0 +1,46 @@
+---
+# ############################################### #
+# Static provider parameter                       #
+# ############################################### #
+provider: ovh
+resources:
+  control_compute: 192.168.0.6
+  compute:         192.168.0.7
+
+# ############################################### #
+# Inventory to use                                #
+# ############################################### #
+
+# This will describe the topology of your services
+inventory: inventories/inventory.sample
+
+# ############################################### #
+# docker registry parameters
+# ############################################### #
+
+# A registry will be deployed and used during the deployment
+registry:
+  type: none
+
+# ############################################### #
+# Enos Customizations                             #
+# ############################################### #
+enable_monitoring: no
+
+# ############################################### #
+# Kolla parameters                                #
+# ############################################### #
+# Repository
+kolla_repo: "https://git.openstack.org/openstack/kolla-ansible"
+kolla_ref: "stable/pike"
+
+# Vars : globals.yml
+kolla:
+  kolla_base_distro: "centos"
+  kolla_install_type: "source"
+  docker_namespace: "beyondtheclouds"
+  enable_heat: "yes"
+  neutron_plugin_agent: "linuxbridge"
+  enable_openvswitch: "no"
+
+

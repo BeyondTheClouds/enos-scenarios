@@ -7,7 +7,7 @@
 
 #+OPTIONS: ':t email:t toc:nil
 
-#+HTML_HEAD: <link id="pagestyle" rel="stylesheet" type="text/css" href="timeline.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../timeline.css" />
 
 #+MACRO: eg /e.g./,
 #+MACRO: ie /i.e./,
@@ -18,11 +18,15 @@ OpenStack has become the de-facto solution to operate compute, network
 and storage resources in public and private clouds. In this lab, we
 are going to:
 - Deploy and configure OpenStack using
-  EnOS[fn:enos-paper][fn:enos-code].
-- Operate this OpenStack to manage IaaS resources (e.g. boot VMs).
+  EnOS[fn:enos-paper][fn:enos-code] (Day 1).
+- Operate this OpenStack to manage IaaS resources (e.g. boot VMs) (Day
+  1/Day 2).
 - Start your OMH -- Online Mines Hosting -- company that deploys
-  Wordpress as a Service.
-- Automatize all the stuff (i.e., manage your cloud from the sofa!)
+  Wordpress as a Service (Day 2).
+- Automatize all the stuff with the Heat template engine (i.e., manage
+  your cloud from the sofa! -- Day 2).
+
+Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slides.pdf][there]].
 #+END_abstract
 
 #+TOC: headlines 3
@@ -31,18 +35,26 @@ are going to:
 - [[#requirements-and-setup][Requirements and Setup]]
   - [[#environment][Environment]]
     - [[#set-the-experimental-environment][Set the experimental environment]]
+  - [[#finish-the-initialization-of-openstack][Finish the initialization of OpenStack]]
+    - [[#access-horizon][Access Horizon]]
+    - [[#ping-vm-from-the-frontend][Ping VM from the Frontend]]
+    - [[#vm-ping-the-internet][VM ping the Internet]]
+- [[#omh----online-mines-hosting][OMH -- Online Mines Hosting]]
+  - [[#clean-the-environment][Clean the environment]]
+- [[#automatize-the-deployment-with-heat][Automatize the deployment with Heat]]
+- [[#appendix][Appendix]]
+  - [[#installs-mariadb-on-debian-9][Installs MariaDB on Debian 9]]
+  - [[#installs-wordpress-on-debian-9][Installs Wordpress on Debian 9]]
 - [[#footnotes][Footnotes]]
 
 * Requirements and Setup
-
 ** Environment
-
 To follow the lab you'll need an OVH account [fn:ovh]. OVH is a French company
 providing Cloud computing and hosting services. Founded in 1999, its
 headquarters are located in Roubaix. OVH has provided us some vouchers that can
 be used to deploy resources during this session. You will quickly notice that
 OVH public Cloud is based on standard cloud technologies. More particularly, the
-infrastructure management is managed by OpenStack ;)
+infrastructure management is managed by OpenStack 😄.
 
 For this lab, we are going to build a Platform as a Service (PaaS) over the OVH
 infrastructure. To that end, we will deploy our own OpenStack on OVH to manage
@@ -58,19 +70,19 @@ it from the first VM to deploy the OpenStack services on our OVH VMs.
 
 During the last session, we used EnOS to deploy the three following groups of
 OpenStack services in a single VM:
-- vagrant_machine:
-  + control;
-  + compute;
-  + network.
- 
+- ~vagrant_machine~:
+  + ~control~
+  + ~compute~
+  + ~network~
+
 Today, we are going to repeat this operation for the first OVH VM, and we will
 deploy only the compute services to the second one, as depicted here:
-- os_control_compute:
-  + control
-  + compute
-  + network
-- os_compute:
-  + compute
+- ~os_control_compute~:
+  + ~control~
+  + ~compute~
+  + ~network~
+- ~os_compute~:
+  + ~compute~
 
 The following depicts the status of the different components in play during the
 lab.
@@ -104,19 +116,17 @@ lab.
 #+END_EXAMPLE
 
 *** Set the experimental environment
-
 **** Create a new project
-
-Please be sure you have created an OVH account prior the session. Once you are
-logged in, reach the OVH public Cloud interface [fn:ovh]. Click on ~Order >
-Cloud project > Create the project~ (~Commander > Projet Cloud > Créer le
-projet~) to create a new project, by giving a name and the voucher provided by
-OVH. Mind that this project will only be active during our session. You can now
-access your project: ~Servers > 'ProjectName' > Infrastructure~.
+Please be sure you have created an OVH account prior the session. Once
+you are logged in, reach the OVH public Cloud interface [fn:ovh].
+Click on ~Order > Cloud project > Create the project~ (~Commander >
+Projet Cloud > Créer le projet~) to create a new project, by giving a
+name and the voucher (~7ZA6-AFGP~) provided by OVH. Mind that this
+project will only be active during our session. You can now access
+your project: ~Servers > 'ProjectName' > Infrastructure~.
 ~Infrastructure~ will be the main panel for us during this session.
 
 **** Set the private network
-
 OVH provides their VMs with a public address which is reachable from the
 Internet. However, our VMs are going to communicate together so we would like to
 set a private network to that end. To create a virtual network, few steps are
@@ -149,13 +159,12 @@ following characteristics:
 - dhcp
 
 #+BEGIN_NOTE
-You can both validate the network creation from the web interface and from the
-CLI by typing: ~openstack network list~ and ~openstack network show
-<network_name>~.
+You can both validate the network creation from the web interface and
+from the CLI by typing: ~openstack network list~ and ~openstack
+network show <network_name>~.
 #+END_NOTE
 
 **** Create an SSH key pair
-
 Connection to the VMs are able through SSH whose authentication is based on
 keys. It is highly recommended to create a pair of keys that will be used only
 for this session. To that end you can type on your local machine:
@@ -163,11 +172,10 @@ for this session. To that end you can type on your local machine:
 : ssh-keygen -t rsa -f ~/.ssh/id_tp_omh -P ''
 
 This commands creates two files:
-- ~~/.ssh.id_tp_omh~: the private counterpart of the SSH key pair;
-- ~~/.ssh.id_tp_omh.pub~: its public counterpart.
+- =~/.ssh.id_tp_omh=: the private counterpart of the SSH key pair;
+- =~/.ssh.id_tp_omh.pub=: its public counterpart.
 
 **** Boot two virtual machines
-
 We can ask OVH to create virtual machines from its ~Infrastructure~ panel. From
 here click on ~Actions > Add a server~ and select the following characteristics:
 - Location: 'Gravelines (GRA3)';
@@ -191,7 +199,7 @@ apt-get install -y \
 # Dowload the tarball and extract it to the home directory
 wget -qO- http://enos.irisa.fr/tp-imt/tp2.tar.gz  | tar -xzv -C /home/debian
 
-pip install -e file:///home/debian/enos#egg=enos
+pip install -e file:///home/debian/tp2/enos#egg=enos
 #+END_SRC
 
 After clicking on ~Launch now~, a new machine should appear in the interface.
@@ -224,6 +232,160 @@ Confirm you can SSH from ~os_control_compute~ to ~os_compute~:
 : local_host:~/ ssh -i ~/.ssh/id_tp_omh debian@<public_ip_os_control_compute>
 
 : os_control_compute:~/ ssh -i ~/.ssh/id_tp_omh debian@<private_ip_os_control_compute>
+
+** Finish the initialization of OpenStack
+Wait the intervention of the instructor to finish the initialization
+of the lab ({{{ie}}} access Horizon, ping VMs one their private Net,
+make VMs ping the Internet).
+
+*** Access Horizon
+Horizon is accessible at http://192.168.0.249:80, thus make it
+unreachable from your browser. To access Horizon, many possibilities
+are offered to you:
+
+- Lynx :: ~lynx~ is a text-based web browser for use in a terminal.
+#+BEGIN_SRC bash
+debian@os_control_compute$ lynx http://192.168.0.249:80
+#+END_SRC
+
+- DNAT            :: Destination NAT (DNAT) changes the destination
+     address of packets. We can use DNAT and tell the frontend
+     ({{{ie}}}, ~debian@os_control_compute~), which is publicly
+     reachable at ~<public_ip_ens3>~, to change the destination of
+     packet incoming on ~<public_ip_ens3>~ port 80 to
+     ~192.168.0.249:80~. This makes Horizon accessible through
+     http://<public_ip_ens3>:80.
+#+BEGIN_SRC bash
+debian@os_control_compute$ sudo iptables -t nat -A PREROUTING\
+  --dst <public_ip_ens3> -p tcp --dport 80\
+  -j DNAT --to-destination 192.168.0.249:80
+#+END_SRC
+
+- SSH Tunnel      :: A SSH tunnel move the communication into a secure
+     channel and allow a user to get an access to a local private
+     service. We can get an access to Horizon by starting a SSH tunnel
+     on our local machine. This provides an access to Horizon through
+     http://localhost:8080.
+#+BEGIN_SRC bash
+my-fancy-zsh-prompt λ → ssh -NL 8080:192.168.0.249:80 \
+  -l debian -i ~/.ssh/id_tp_omh <public_ip_ens3>
+#+END_SRC
+
+*** Ping VM from the Frontend
+The neutron router called ~router~ makes the link between the public
+and private network. If you want to ping your VMs from the Frontend
+({{{ie}}}, ~debian@os_control_compute~), then add a route that goes
+through the router.
+
+#+BEGIN_SRC
+debian@os_control_compute$ sudo ip route add 10.0.0.0/24 via\
+  $(openstack router show router -c external_gateway_info -f value\
+    |jq -r ".external_fixed_ips[0] | .ip_address")
+#+END_SRC
+
+*** VM ping the Internet
+: sudo iptables -t nat -A POSTROUTING -o ens3 -j MASQUERADE
+
+* OMH -- Online Mines Hosting
+#+BEGIN_NOTE
+Before doing that part, first remind basics of OpenStack by redoing
+the [[file:../day1/SUBJECT.org::play-with-os][last part of the previous session]]. Horizon is available behind
+the public IP of ~os_control_compute~.
+#+END_NOTE
+
+Wordpress[fn:wordpress] is the most popular content management system
+(CMS) in use on the Web. People use it to create websites, blogs or
+applications. It is open-source, and based on PHP and MySQL under the
+hood.
+
+A common Wordpress deployment consists in two machines:
+- ~wordpress-db~   :: A machine that contains the MySQL database for
+     Wordpress.
+- ~wordpress-app~  :: A machine that contains a web server that serves
+     the Wordpress CMS.
+
+The directory ~rsc/lib~ provides bash scripts to deploy the MySQL
+database and the web server. As the DevOps of OMH -- Online Mines
+Hosting -- your job is to automatize the deployment of a Wordpress on
+your OpenStack. See the bash scripts in [[*Appendix][appendix]] for more information.
+Also, [[*Clean the environment][clean your environment]] before going further.
+
+** Clean the environment
+When it comes the time to deal with real applications, we cannot use
+cirros VMs anymore. A Cirros VM is good for testing because it starts
+fast and has a small memory footprint. However, do not expect to
+launch MySQL on a cirros.
+
+We are going to run several Debian9 VMs in this section. But, a
+Debian9 takes a lot more of resources to run. For this reason, you
+have to release all your resources before going further.
+
+First, delete currently running VMs.
+#+BEGIN_SRC bash
+debian@os_control_compute:~$ for vm in $(openstack server list -c Name -f value); do\
+  echo "Delete ${vm}...";\
+  openstack server delete "${vm}";\
+done
+#+END_SRC
+
+In the same manner, delete floating IPs.
+#+BEGIN_SRC bash
+debian@os_control_compute:~$ for ip in $(openstack floating ip list -c "Floating IP Address" -f value); do\
+  echo "Delete ${ip}...";\
+  openstack floating ip delete "${ip}";\
+done
+#+END_SRC
+
+** Wordpress MySQL Database                                        :noexport:
+Start a VM with ~wordpress-db~ name, ~debian-9~ image, ~m1.small~
+flavor, ~private~ network and ~admin~ key-pair. Also, provision your
+VM with the next script thanks to the ~--user-data
+~/rsc/lib/install-mariadb.sh~ option.
+
+#+BEGIN_SRC bash
+openstack server create --wait --image debian-9\
+                               --flavor m1.small --network private\
+                               --key-name admin\
+                               --user-data ~/rsc/lib/install-mariadb.sh\
+                               wordpress-db
+#+END_SRC
+
+** Wordpress Application                                           :noexport:
+Start a VM with ~wordpress-app~ name, ~debian-9~ image, ~m1.small~
+flavor, ~private~ network and ~admin~ key-pair. Also, provision your
+VM with the next script thanks to the ~--user-data
+~/rsc/lib/install-wp.sh~ option. Note that you need to provide the IP address
+of the MySQL server to this script before running it.
+
+#+BEGIN_SRC bash
+openstack server create --wait --image debian-9\
+                               --flavor m1.small --network private\
+                               --key-name admin\
+                               --user-data ~/rsc/lib/install-wp.sh\
+                               wordpress-app
+#+END_SRC
+
+Then, attach a floating ip to that VM.
+#+BEGIN_SRC bash
+debian@os_control_compute:~$ openstack server add floating ip\
+  wordpress-wp\
+  $(openstack floating ip create public -c floating_ip_address -f value)
+#+END_SRC
+
+Finally, you can reach WordPress.
+#+BEGIN_SRC bash
+debian@os_control_compute:~$ lynx <floating_ip>/wp
+#+END_SRC
+
+* Automatize the deployment with Heat
+[[https://docs.google.com/presentation/d/14Mzr_hMvH6AB7yUqUilbrnkxpQTTVAJnKZ1W-7zIE-0/edit#slide=id.p][/Dim's slides/]]
+
+* Appendix
+** Installs MariaDB on Debian 9
+#+INCLUDE: "../lib/install-mariadb.sh" src bash
+
+** Installs Wordpress on Debian 9
+#+INCLUDE: "../lib/install-wp.sh" src bash
 
 * Footnotes
 
@@ -258,7 +420,7 @@ Confirm you can SSH from ~os_control_compute~ to ~os_compute~:
 # org-html-postamble: "<p class=\"author\">Author: %a</p>
 # <p class=\"email\">Email: %e</p>
 # <p class=\"github\">Find a typo, wanna make a proposition:
-#  <a href=\"https://github.com/BeyondTheClouds/enos-scenarios/issues/new?title=rescom17\">open an issue</a></p>
+#  <a href=\"https://github.com/BeyondTheClouds/enos-scenarios/issues/new?title=tp-imt\">open an issue</a></p>
 # <p class=\"date\">Last modification: %C</p>
 # <p class=\"license\">This work is licensed under a <a rel=\"license\" href=\"http://creativecommons.org/licenses/by-sa/4.0/\">Creative Commons Attribution-ShareAlike 4.0 International License</a>.</p>
 # <p class=\"creator\">%c – theme by

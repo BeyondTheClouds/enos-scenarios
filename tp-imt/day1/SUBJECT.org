@@ -7,7 +7,7 @@
 
 #+OPTIONS: ':t email:t toc:nil
 
-#+HTML_HEAD: <link id="pagestyle" rel="stylesheet" type="text/css" href="timeline.css"/>
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../timeline.css"/>
 
 #+MACRO: eg /e.g./,
 #+MACRO: ie /i.e./,
@@ -18,11 +18,13 @@ OpenStack has become the de-facto solution to operate compute, network
 and storage resources in public and private clouds. In this lab, we
 are going to:
 - Deploy and configure OpenStack using
-  EnOS[fn:enos-paper][fn:enos-code].
-- Operate this OpenStack to manage IaaS resources (e.g. boot VMs).
+  EnOS[fn:enos-paper][fn:enos-code] (Day 1).
+- Operate this OpenStack to manage IaaS resources (e.g. boot VMs) (Day
+  1/Day 2).
 - Start your OMH -- Online Mines Hosting -- company that deploys
-  Wordpress as a Service.
-- Automatize all the stuff (i.e., manage your cloud from the sofa!)
+  Wordpress as a Service (Day 2).
+- Automatize all the stuff with the Heat template engine (i.e., manage
+  your cloud from the sofa! -- Day 2).
 
 Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slides.pdf][there]].
 #+END_abstract
@@ -30,30 +32,24 @@ Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slid
 #+TOC: headlines 3
 
 * Table of Contents                                          :TOC@3:noexport:
- - [[#requirements-and-setup][Requirements and Setup]]
-   - [[#environment][Environment]]
-   - [[#setup-the-lab-vm][Setup the lab vm]]
-     - [[#get-the-base-box][Get the base box]]
-     - [[#prepare-the-lab-vm][Prepare the lab VM]]
-     - [[#start-the-lab-vm][Start the lab VM]]
-   - [[#validate-the-setup][Validate the setup]]
- - [[#deploy-openstack-with-enos][Deploy OpenStack with EnOS]]
-   - [[#the-enos-configuration-file][The EnOS configuration file]]
-   - [[#deploy-openstack][Deploy OpenStack]]
-   - [[#finish-the-initialization-of-openstack][Finish the initialization of OpenStack]]
-     - [[#images][Images]]
-     - [[#flavors][Flavors]]
-   - [[#play-with-openstack][Play with OpenStack]]
-     - [[#unleash-the-operator-in-you][Unleash the Operator in You]]
-     - [[#in-encryption-we-trust][In Encryption We Trust]]
-     - [[#the-art-of-provisioning-a-vm][The Art of Provisioning a VM]]
- - [[#omh----online-mines-hosting][OMH -- Online Mines Hosting]]
-   - [[#clean-the-environment][Clean the environment]]
- - [[#automatize-the-deployment-with-heat][Automatize the deployment with Heat]]
- - [[#appendix][Appendix]]
-   - [[#installs-mariadb-on-debian-9][Installs MariaDB on Debian 9]]
-   - [[#installs-wordpress-on-debian-9][Installs Wordpress on Debian 9]]
- - [[#footnotes][Footnotes]]
+- [[#requirements-and-setup][Requirements and Setup]]
+  - [[#environment][Environment]]
+  - [[#setup-the-lab-vm][Setup the lab vm]]
+    - [[#get-the-base-box][Get the base box]]
+    - [[#prepare-the-lab-vm][Prepare the lab VM]]
+    - [[#start-the-lab-vm][Start the lab VM]]
+  - [[#validate-the-setup][Validate the setup]]
+- [[#deploy-openstack-with-enos][Deploy OpenStack with EnOS]]
+  - [[#the-enos-configuration-file][The EnOS configuration file]]
+  - [[#deploy-openstack][Deploy OpenStack]]
+  - [[#finish-the-initialization-of-openstack][Finish the initialization of OpenStack]]
+    - [[#images][Images]]
+    - [[#flavors][Flavors]]
+- [[#play-with-openstack][Play with OpenStack]]
+  - [[#unleash-the-operator-in-you][Unleash the Operator in You]]
+  - [[#in-encryption-we-trust][In Encryption We Trust]]
+  - [[#the-art-of-provisioning-a-vm][The Art of Provisioning a VM]]
+- [[#footnotes][Footnotes]]
 
 * Requirements and Setup
 ** Environment
@@ -283,8 +279,10 @@ of the lab ({{{ie}}} install images and flavors).
 : openstack flavor create --ram 512 --disk 1 --vcpus 1 --public m1.tiny
 : openstack flavor create --ram 512 --disk 5 --vcpus 1 --public m1.small
 
-
-** Play with OpenStack
+* Play with OpenStack
+:PROPERTIES:
+:CUSTOM_ID: play-with-os
+:END:
 The last service deployed is the OpenStack dashboard (Horizon). Once
 the deployment process is finished, Horizon is reachable from the web
 browser of your host machine http://192.168.142.127 with the following
@@ -316,7 +314,7 @@ While Horizon is helpful to discover OpenStack features, this is not
 how a true operator administrates OpenStack. A true operator prefers
 command line interface 😄.
 
-*** Unleash the Operator in You
+** Unleash the Operator in You
 OpenStack provides a command line interface to operate your Cloud. But
 before using it, you need to set your environment with the OpenStack
 credentials, so that the command line won't bother you by requiring
@@ -440,7 +438,7 @@ CLI commands for the following actions:
 
 # : openstack server ssh cli-vm --address-type private --login cirros
 
-*** In Encryption We Trust
+** In Encryption We Trust
 Any cirros VMs share the same credentials ({{{ie}}} ~cirros~,
 ~cubswin~) which is a security problem. As an IaaS DevOps, you want
 that only some clients can SSH on some VMs. Fortunately, OpenStack
@@ -479,7 +477,7 @@ A regular ~ssh~ command looks like ~ssh -i <identity-file> <name>@<server-ip>~. 
 : vagrant@openstack:~$ openstack server show cli-vm-adminkey -c addresses -f value | sed  -Er 's/private=(10\.0\.0\.[0-9]+).*/\1/g'
 #+END_NOTE
 
-*** The Art of Provisioning a VM
+** The Art of Provisioning a VM
 Provisioning is the process that automatically installs software,
 alters configurations, and more on the machine as part of the boot
 process. On OpenStack, provisioning is achieved thanks to
@@ -504,6 +502,7 @@ installs ~figlet~ and ~lolcat~ software on the VM:
 #+BEGIN_SRC bash
 vagrant@openstack:~$ PROVISION_FILE='/tmp/provision.sh'
 vagrant@openstack:~$ cat > "$PROVISION_FILE" << EOF
+#!/bin/bash
 apt-get update
 apt-get install -y figlet lolcat
 EOF
@@ -526,101 +525,6 @@ vagrant@openstack:~$ openstack server ssh cli-vm-provision \
   --identity ~/admin.pem
 debian@cli-vm-provision:~$ figlet "The Art of Provisionning a VM" | lolcat
 #+END_SRC
-
-* OMH -- Online Mines Hosting
-Wordpress[fn:wordpress] is the most popular content management system
-(CMS) in use on the Web. People use it to create websites, blogs or
-applications. It is open-source, and based on PHP and MySQL under the
-hood.
-
-A common Wordpress deployment consists in two machines:
-- ~wordpress-db~   :: A machine that contains the MySQL database for
-     Wordpress.
-- ~wordpress-app~  :: A machine that contains a web server that serves
-     the Wordpress CMS.
-
-The directory ~rsc/lib~ provides bash scripts to deploy the MySQL
-database and the web server. As the DevOps of OMH -- Online Mines
-Hosting -- your job is to automatize the deployment of a Wordpress on
-your OpenStack. See the bash scripts in [[*Appendix][appendix]] for more information.
-Also, [[*Clean the environment][clean your environment]] before going further.
-
-** Clean the environment
-When it comes the time to deal with real applications, we cannot use
-cirros VMs anymore. A Cirros VM is good for testing because it starts
-fast and has a small memory footprint. However, do not expect to
-launch MySQL on a cirros.
-
-We are going to run several Debian9 VMs in this section. But, a
-Debian9 takes a lot more of resources to run. For this reason, you
-have to release all your resources before going further.
-
-First, delete currently running VMs.
-#+BEGIN_SRC bash
-vagrant@openstack:~$ for vm in $(openstack server list -c Name -f value); do\
-  echo "Delete ${vm}...";\
-  openstack server delete "${vm}";\
-done
-#+END_SRC
-
-In the same manner, delete floating IPs.
-#+BEGIN_SRC bash
-vagrant@openstack:~$ for ip in $(openstack floating ip list -c "Floating IP Address" -f value); do\
-  echo "Delete ${ip}...";\
-  openstack floating ip delete "${ip}";\
-done
-#+END_SRC
-
-** Wordpress MySQL Database                                        :noexport:
-Start a VM with ~wordpress-db~ name, ~debian-9~ image, ~m1.small~
-flavor, ~private~ network and ~admin~ key-pair. Also, provision your
-VM with the next script thanks to the ~--user-data
-~/rsc/lib/install-mariadb.sh~ option.
-
-#+BEGIN_SRC bash
-openstack server create --wait --image debian-9\
-                               --flavor m1.small --network private\
-                               --key-name admin\
-                               --user-data ~/rsc/lib/install-mariadb.sh\
-                               wordpress-db
-#+END_SRC
-
-** Wordpress Application                                           :noexport:
-Start a VM with ~wordpress-app~ name, ~debian-9~ image, ~m1.small~
-flavor, ~private~ network and ~admin~ key-pair. Also, provision your
-VM with the next script thanks to the ~--user-data
-~/rsc/lib/install-wp.sh~ option. Note that you need to provide the IP address
-of the MySQL server to this script before running it.
-
-#+BEGIN_SRC bash
-openstack server create --wait --image debian-9\
-                               --flavor m1.small --network private\
-                               --key-name admin\
-                               --user-data ~/rsc/lib/install-wp.sh\
-                               wordpress-app
-#+END_SRC
-
-Then, attach a floating ip to that VM.
-#+BEGIN_SRC bash
-vagrant@openstack:~$ openstack server add floating ip\
-  wordpress-wp\
-  $(openstack floating ip create public -c floating_ip_address -f value)
-#+END_SRC
-
-Finally, you can reach WordPress.
-#+BEGIN_SRC bash
-vagrant@openstack:~$ lynx <floating_ip>/wp
-#+END_SRC
-
-* Automatize the deployment with Heat
-/Dim's slides/
-
-* Appendix
-** Installs MariaDB on Debian 9
-#+INCLUDE: "./lib/install-mariadb.sh" src bash
-
-** Installs Wordpress on Debian 9
-#+INCLUDE: "./lib/install-wp.sh" src bash
 
 * Footnotes
 
