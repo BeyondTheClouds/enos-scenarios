@@ -49,7 +49,10 @@ Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slid
 
 * Requirements and Setup
 ** Environment
-To follow the lab you'll need an OVH account [fn:ovh]. OVH is a French company
+:PROPERTIES:
+:CUSTOM_ID: sec:ovh
+:END:
+To follow the lab you'll need an OVH account[fn:ovh]. OVH is a French company
 providing Cloud computing and hosting services. Founded in 1999, its
 headquarters are located in Roubaix. OVH has provided us some vouchers that can
 be used to deploy resources during this session. You will quickly notice that
@@ -152,11 +155,15 @@ interface to reach a terminal from which you can use the OpenStack CLI just like
 you did in our first session.
 #+END_NOTE
 
+***** Create a private network
 Create a private network (using either the interface or the CLI) with the
 following characteristics:
+- name: project-net
+- *No* VLAN
+- *No* dhcp
+- Only on Gravelines
 - address: 192.168.0.0
 - mask: 255.255.255.0
-- dhcp
 
 #+BEGIN_NOTE
 You can both validate the network creation from the web interface and
@@ -186,21 +193,7 @@ here click on ~Actions > Add a server~ and select the following characteristics:
   + Read and provide the script below as post-installation script;
   + Link the machine to your private network.
 
-#+BEGIN_SRC bash
-#!/bin/bash
-
-# Update apt and install requirements / useful packages
-apt-get update
-apt-get install -y \
-    htop jq vim lynx \
-    git libffi-dev libssl-dev python-dev build-essential \
-    python-pip python-setuptools bridge-utils tcpdump
-
-# Dowload the tarball and extract it to the home directory
-wget -qO- http://enos.irisa.fr/tp-imt/tp2.tar.gz  | tar -xzv -C /home/debian
-
-pip install -e file:///home/debian/tp2/enos#egg=enos
-#+END_SRC
+#+INCLUDE: "lib/os-control-compute.sh" src bash
 
 After clicking on ~Launch now~, a new machine should appear in the interface.
 You can validate the VM is active with ~openstack server list~. Also try to ping
@@ -211,15 +204,7 @@ and SSH to this machine:
 Boot the second machine similarly but provide the following post-installation
 script:
 
-#+BEGIN_SRC bash
-#!/bin/bash
-
-# Update apt and install requirements / useful packages
-apt-get update
-apt-get install -y \
-    htop jq vim lynx \
-    python-pip python-dev
-#+END_SRC
+#+INCLUDE: "lib/os-compute.sh" src bash
 
 We should copy the private counterpart of the SSH key pair on the first VM so
 that it can be used to ease the SSH connection to the second machine. To that
@@ -289,8 +274,9 @@ debian@os_control_compute$ sudo ip route add 10.0.0.0/24 via\
 * OMH -- Online Mines Hosting
 #+BEGIN_NOTE
 Before doing that part, first remind basics of OpenStack by redoing
-the [[file:../day1/SUBJECT.org::play-with-os][last part of the previous session]]. Horizon is available behind
-the public IP of ~os_control_compute~.
+the Play with OpenStack section of the previous session (see
+[[file:../day1/SUBJECT.org::#sec:play-with-os][Day 1 → Sec 3]]).
+Horizon is available behind the public IP of ~os_control_compute~.
 #+END_NOTE
 
 Wordpress[fn:wordpress] is the most popular content management system

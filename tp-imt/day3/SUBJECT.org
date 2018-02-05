@@ -1,0 +1,93 @@
+#+TITLE: Operate Resources in Public and Private Clouds
+#+TITLE: Thanks to OpenStack
+#+SUBTITLE: The case of OMH -- Online Mines Hosting
+#+AUTHOR: Ronan-Alexandre Cherrueau, Dimitri Pertin, Didier Iscovery
+#+EMAIL: {firstname.lastname}@inria.fr
+#+DATE: <2017-12-20 Wed>
+
+#+OPTIONS: ':t email:t toc:nil
+
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../timeline.css" />
+
+#+MACRO: eg /e.g./,
+#+MACRO: ie /i.e./,
+#+MACRO: i18n /$1/ (en anglais, $2)
+
+#+BEGIN_abstract
+OpenStack has become the de-facto solution to operate compute, network
+and storage resources in public and private clouds. In this lab, we
+are going to:
+- Deploy and configure OpenStack using
+  EnOS[fn:enos-paper][fn:enos-code] (Day 1).
+- Operate this OpenStack to manage IaaS resources (e.g. boot VMs) (Day
+  1/Day 2).
+- Start your OMH -- Online Mines Hosting -- company that deploys
+  Wordpress as a Service (Day 2).
+- Automatize all the stuff with the Heat template engine (i.e., manage
+  your cloud from the sofa! -- Day 2).
+
+Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slides.pdf][there]].
+#+END_abstract
+
+#+TOC: headlines 3
+
+* Table of Contents                                          :TOC@3:noexport:
+- [[#requirements-and-setup][Requirements and Setup]]
+- [[#footnotes][Footnotes]]
+
+* Requirements and Setup
+During the last session we used an OVH account to setup 2 machines,
+put them into a private network and then install OpenStack on top of
+them (see [[file:~/prog/inria-perso/enos-scenarios/tp-imt/day1/SUBJECT.org::#sec:ovh][Day 2 → Sec 1]]). We got these 2 machines using the web
+interface of OVH. However, remember that the "public cloud"
+infrastructure of OVH is managed by OpenStack itself. To convince
+yourself, go to TODO:horizon-ovh + download openrc
+
+With the ~openrc~ file, we can also automatize all the setup part with
+a script that call the proper OpenStack commands.
+
+This script is available online at [[file:lib/setup-tp-imt-ovh.sh]]. In
+this script, we reuse the [[file:../day2/lib/os-control-compute.sh]] and
+[[file:../day2/lib/os-compute.sh]] from the previous session. We
+explicitly pass theme to cloud init to provision machines.
+#+INCLUDE: "lib/setup-tp-imt-ovh.sh" src bash
+
+* Footnotes
+
+[fn:ovh] https://www.ovh.com/fr/cloud/
+[fn:ovh-vrack] https://www.ovh.com/manager/cloud/index.html#/vrack
+[fn:ovh-vrack-doc] https://docs.ovh.com/fr/public-cloud/utiliser-le-vrack-et-les-reseaux-prives-avec-les-instances-public-cloud/https://docs.ovh.com/fr/public-cloud/utiliser-le-vrack-et-les-reseaux-prives-avec-les-instances-public-cloud/
+[fn:cloudinit] https://cloud-init.io/
+[fn:cloudinit_modules] http://cloudinit.readthedocs.io/en/latest/topics/modules.html
+[fn:wordpress] https://wordpress.org/
+[fn:devstack] https://docs.openstack.org/devstack/latest/
+[fn:puppet] https://docs.openstack.org/puppet-openstack-guide/latest/
+[fn:kolla-ansible] https://docs.openstack.org/developer/kolla-ansible/
+[fn:enos-paper] https://hal.inria.fr/hal-01415522v2
+[fn:enos-code] https://github.com/BeyondTheClouds/enos
+[fn:virtualbox-downloads] https://www.virtualbox.org/wiki/Downloads
+[fn:vagrant-downloads] https://www.vagrantup.com/downloads.html
+[fn:enos-box] http://enos.irisa.fr/vagrant-box/polytech.box
+[fn:enos-provider] https://enos.readthedocs.io/en/latest/provider.html
+[fn:enos-g5k-provider] https://enos.readthedocs.io/en/latest/provider/grid5000.html
+[fn:enos-vagrant-provider] https://enos.readthedocs.io/en/latest/provider/vagrant.html
+[fn:vagrantfile] https://www.vagrantup.com/docs/vagrantfile/index.html
+[fn:cadvisor] https://github.com/google/cadvisor
+[fn:collectd] https://collectd.org/
+[fn:grafana] https://grafana.com/
+[fn:rally] https://rally.readthedocs.io/en/latest/
+[fn:shaker] https://pyshaker.readthedocs.io/en/latest/
+[fn:rally-scenarios] https://github.com/openstack/rally/tree/master/rally/plugins/openstack/scenarios
+[fn:shaker-scenarios] https://github.com/openstack/shaker/tree/master/shaker/scenarios/openstack
+[fn:dvr] https://wiki.openstack.org/wiki/Neutron/DVR
+
+# Local Variables:
+# org-html-postamble: "<p class=\"author\">Author: %a</p>
+# <p class=\"email\">Email: %e</p>
+# <p class=\"github\">Find a typo, wanna make a proposition:
+#  <a href=\"https://github.com/BeyondTheClouds/enos-scenarios/issues/new?title=tp-imt (Day 3)\">open an issue</a></p>
+# <p class=\"date\">Last modification: %C</p>
+# <p class=\"license\">This work is licensed under a <a rel=\"license\" href=\"http://creativecommons.org/licenses/by-sa/4.0/\">Creative Commons Attribution-ShareAlike 4.0 International License</a>.</p>
+# <p class=\"creator\">%c – theme by
+#  <a href=\"http://gongzhitaao.org/orgcss\">http://gongzhitaao.org/orgcss</a></p>"
+# End:

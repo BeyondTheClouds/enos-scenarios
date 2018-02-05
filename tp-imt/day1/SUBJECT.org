@@ -281,7 +281,7 @@ of the lab ({{{ie}}} install images and flavors).
 
 * Play with OpenStack
 :PROPERTIES:
-:CUSTOM_ID: play-with-os
+:CUSTOM_ID: sec:play-with-os
 :END:
 The last service deployed is the OpenStack dashboard (Horizon). Once
 the deployment process is finished, Horizon is reachable from the web
