@@ -33,7 +33,7 @@ Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slid
 
 - [[file:day1/SUBJECT.org][Day 1]]
 - [[file:day2/SUBJECT.org][Day 2]]
-- [ ] Day 3
+- [[file:day3/SUBJECT.org][Day 3]]
 
 * Footnotes
 

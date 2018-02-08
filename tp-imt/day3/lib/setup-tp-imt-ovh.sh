@@ -1,10 +1,8 @@
 #!/usr/bin/env bash
-set -x
-set -e
+set -o errexit # `help set'
 
-# SSH_KEY_SEC=~/.ssh/id_tp_omh   # SSH private key for the lab
-SSH_KEY_SEC=~/.ssh/id_rsa_discovery
-SSH_KEY_PUB=${SSH_KEY_SEC}.pub # Public counter part of the SSH key
+SSH_KEY_SEC=~/.ssh/id_tp_omh   # SSH private key for the lab
+SSH_KEY_PUB=${SSH_KEY_SEC}.pub # SSH public counter part
 
 # Build a venv to install openstack-cli in a sandbox
 if [ ! -d tp-imt-venv ]
@@ -13,14 +11,19 @@ then
 fi
 . tp-imt-venv/bin/activate
 
-# Install OpenStack CLI
-pip install python-openstackclient==3.14.0
+# Install OpenStack CLI (if not already installed)
+if ! python -c "import openstackclient" &> /dev/null
+then
+    pip install python-openstackclient==3.14.0
+fi
 
 # Source the openrc file provided by OVH
 # Get that file from:
 # Cloud > Serveurs > tp-enos-imt > OpenStack > ... > Télécharger un
 # fichier de configuration OpenStack > GRA 3
 . ./openrc.sh
+
+set -o xtrace
 
 # Import the public key of the tp into OpenStack keychain
 openstack keypair show tp-omh || \
@@ -75,3 +78,10 @@ openstack server show os-compute ||\
 PUBLIC_IP_OS_CONTROL_COMPUTE=$(python get-public-ip.py "$(openstack server show -c addresses -f value os-control-compute)")
 scp -i "${SSH_KEY_SEC}" "${SSH_KEY_SEC}"\
     debian@${PUBLIC_IP_OS_CONTROL_COMPUTE}:/home/debian/.ssh/id_rsa
+
+# To connect on the os-control-compute
+openstack server ssh\
+          --login debian\
+          --identity "${SSH_KEY_SEC}"\
+          --address-type Ext-Net -4\
+          os-control-compute

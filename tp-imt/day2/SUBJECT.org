@@ -5,6 +5,7 @@
 #+EMAIL: {firstname.lastname}@inria.fr
 #+DATE: <2017-12-20 Wed>
 
+#+LANGUAGE: en
 #+OPTIONS: ':t email:t toc:nil
 
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../timeline.css" />
@@ -274,9 +275,9 @@ debian@os_control_compute$ sudo ip route add 10.0.0.0/24 via\
 * OMH -- Online Mines Hosting
 #+BEGIN_NOTE
 Before doing that part, first remind basics of OpenStack by redoing
-the Play with OpenStack section of the previous session (see
-[[file:../day1/SUBJECT.org::#sec:play-with-os][Day 1 → Sec 3]]).
-Horizon is available behind the public IP of ~os_control_compute~.
+the "Play with OpenStack" section of the previous session (see [[file:../day1/SUBJECT.org::#sec:play-with-os][Day 1 →
+Sec 3]]). Horizon is available behind the public IP of
+~os_control_compute~.
 #+END_NOTE
 
 Wordpress[fn:wordpress] is the most popular content management system

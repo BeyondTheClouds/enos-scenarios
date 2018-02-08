@@ -726,12 +726,6 @@ img {
     max-width: 100%;
     vertical-align: middle
 }
-@media (min-width: 769px) {
-    img {
-        max-width: 85vw;
-        margin: auto
-    }
-}
 .MathJax_Display {
     font-size: 90%;
     margin: 0!important;
@@ -1012,4 +1006,22 @@ pre.src-makefile:before {
     margin-right: 5px;
     text-align: center;
     width: 1.6em;
+}
+
+@media screen and (min-width: 600px) {
+    h1 {
+        font-size: 2em;
+    }
+    h2 {
+        font-size: 1.5em;
+    }
+    h3 {
+        font-size: 1.3em;
+    }
+    h1,h2,h3 {
+        line-height: 1.4em;
+    }
+    h4,h5,h6 {
+        font-size: 1.1em;
+    }
 }

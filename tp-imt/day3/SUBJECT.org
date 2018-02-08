@@ -3,8 +3,9 @@
 #+SUBTITLE: The case of OMH -- Online Mines Hosting
 #+AUTHOR: Ronan-Alexandre Cherrueau, Dimitri Pertin, Didier Iscovery
 #+EMAIL: {firstname.lastname}@inria.fr
-#+DATE: <2017-12-20 Wed>
+#+DATE: <2018-02-08 Thu>
 
+#+LANGUAGE: en
 #+OPTIONS: ':t email:t toc:nil
 
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../timeline.css" />
@@ -12,6 +13,8 @@
 #+MACRO: eg /e.g./,
 #+MACRO: ie /i.e./,
 #+MACRO: i18n /$1/ (en anglais, $2)
+#+MACRO: voucher2 ~TODO:fill-me~
+
 
 #+BEGIN_abstract
 OpenStack has become the de-facto solution to operate compute, network
@@ -39,17 +42,46 @@ Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slid
 During the last session we used an OVH account to setup 2 machines,
 put them into a private network and then install OpenStack on top of
 them (see [[file:~/prog/inria-perso/enos-scenarios/tp-imt/day1/SUBJECT.org::#sec:ovh][Day 2 → Sec 1]]). We got these 2 machines using the web
-interface of OVH. However, remember that the "public cloud"
+interface of OVH. However, remember that the /Public Cloud/
 infrastructure of OVH is managed by OpenStack itself. To convince
-yourself, go to TODO:horizon-ovh + download openrc
+yourself, first activate the new voucher for the current session
+{{{voucher2}}}. Then, from your project, click on the /OpenStack/ tab.
+From there, you can open OVH OpenStack Horizon.
 
-With the ~openrc~ file, we can also automatize all the setup part with
-a script that call the proper OpenStack commands.
+#+CAPTION: Open the Horizon of your OVH Public Cloud project.
+[[file:images/ovh-to-horizon.png]]
 
-This script is available online at [[file:lib/setup-tp-imt-ovh.sh]]. In
-this script, we reuse the [[file:../day2/lib/os-control-compute.sh]] and
-[[file:../day2/lib/os-compute.sh]] from the previous session. We
-explicitly pass theme to cloud init to provision machines.
+Connect yourself on OVH OpenStack Horizon, and select region ~GRA3~ in
+the region dropdown.
+
+#+CAPTION: Select ~GRA3~ Region from Horizon.
+[[file:images/horizon-region-dropdown.png]]
+
+Now you can setup the 2 machines from Horizon. But, if you can do it
+from Horizon, then can do it from OpenStack CLI! The only things you
+need is an OpenStack RC file that contains all ~OS_*~ environment
+variables so you can call OpenStack CLI. You can download the
+OpenStack RC file from Horizon. By clicking on your name and then
+/OpenStack RC File *v2*/.
+
+#+CAPTION: Download OpenStack RC File from Horizon.
+[[file:images/horizon-os-rc-file.png]]
+
+#+BEGIN_NOTE
+If you forgot about the OpenStack RC file, read again the "Unleash the
+Operator in You" section from the first session (see [[file:../day1/SUBJECT.org::#sec:play-with-os][Day 1 → Sec 3]]).
+#+END_NOTE
+
+Downloads that OpenStack RC File, then put it into the lib directory
+and rename it ~openrc.sh~. With the OpenStack RC file, we can
+automatize all the setup. A script that call proper OpenStack commands
+is available online at [[file:lib/setup-tp-imt-ovh.sh]]. In this script,
+we reuse the [[file:../day2/lib/os-control-compute.sh]] and
+[[file:../day2/lib/os-compute.sh]] script from the previous session. Here,
+we give theme to cloud init ({{{ie}}} ~--user-data~) to provision
+machines.
+
+#+CAPTION: Script to setup OMH lab on OVH
 #+INCLUDE: "lib/setup-tp-imt-ovh.sh" src bash
 
 * Footnotes
