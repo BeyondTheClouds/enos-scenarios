@@ -88,7 +88,8 @@ is available online at [[file:lib/setup-tp-imt-ovh.sh]]. In this script,
 we reuse the [[file:../day2/lib/os-control-compute.sh]] and
 [[file:../day2/lib/os-compute.sh]] script from the previous session. Here,
 we give theme to cloud init ({{{ie}}} ~--user-data~) to provision
-machines.
+machines. Note, to execute this script you need to install
+[[https://pypi.python.org/pypi/virtualenv][~virtualenv~]].
 
 #+CAPTION: Script to setup OMH lab on OVH
 #+INCLUDE: "lib/setup-tp-imt-ovh.sh" src bash
