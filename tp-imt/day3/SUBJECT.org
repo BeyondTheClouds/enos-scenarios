@@ -521,6 +521,42 @@ define('WP_CONTENT_DIR', '/var/lib/wordpress/wp-content');
 EOF
 +END_SRC
 
+* The QuakeJs Secret Project                                       :noexport:
+See http://www.quakejs.com/
+
+Start the QuakeJs VM
+: openstack server create --network provider-net --image debian-9 --flavor m1.small --key-name admin --user-data ./quakejs.sh --wait quakejs-vm
+: watch openstack console log show --lines=20 quakejs-vm
+
+#+INCLUDE: "~/prog/inria-perso/enos-scenarios/tp-imt/day3/lib/quakejs.sh"
+
+Make a snapshot:
+: nova image-create quakejs-vm quakejs-vm
+
+Start the game CDN
+: openstack server ssh --login debian --identity admin.pem --address-type provider-net quakejs-vm
+: sudo su
+: cd /quakejs
+: node bin/web.js --config ./web.json
+
+Expose the CDN on 8080
+: sudo iptables -t nat -A PREROUTING --dst $(hostname -I | cut -f1 -d ' ') -p tcp --dport 8080 -j DNAT --to-destination 192.168.0.8:8080
+
+Start the game server
+: openstack server create --network provider-net --image quakejs-vm --flavor m1.medium --key-name admin --wait quakejs-server
+: openstack server ssh --login debian --identity admin.pem --address-type provider-net quakejs-server
+: sudo su
+: cd /quakejs
+: node build/ioq3ded.js +set fs_game baseq3 +set dedicated 2
+: cp /server.cfg /quakejs/base/baseq3/server.cfg
+: node build/ioq3ded.js +set fs_game baseq3 +set dedicated 1 +exec server.cfg
+
+Expose the Game server on 27960
+: sudo iptables -t nat -A PREROUTING --dst $(hostname -I | cut -f1 -d ' ') -p tcp -m tcp --dport 27960 -j DNAT --to-destination 192.168.0.9:27960
+: sudo iptables -t nat -A PREROUTING --dst $(hostname -I | cut -f1 -d ' ') -p udp -m udp --dport 27960 -j DNAT --to-destination 192.168.0.9:27960
+
+: openstack server migrate --live os-compute2 quakejs-server
+
 
 * Footnotes
 
