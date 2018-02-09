@@ -43,6 +43,7 @@ Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slid
   - [[#integrate-cloud-init-in-heat][Integrate ~cloud-init~ in Heat]]
   - [[#get-a-flexible-post-installation-script-with-cloud-init-and-parameters][Get a flexible post-installation script with ~cloud-init~ and parameters]]
   - [[#nested-templates][Nested templates]]
+  - [[#share-information-between-nested-templates][Share information between nested templates]]
 - [[#exercise-automatic-deployment-of-wordpress-with-heat][Exercise: Automatic deployment of WordPress with Heat]]
 - [[#footnotes][Footnotes]]
 
@@ -240,7 +241,7 @@ outputs:
 
 We used here another intrinsic function: ~get_attr~ which is used to get the IP
 address from our VM. Returned values can be displayed with the CLI or fetched
-from other templates:
+from other templates (we will see this last case latter):
 
 +BEGIN_SRC bash
 $ openstack stack create -t ./boot_vm_with_params.yml helloworld
@@ -273,7 +274,6 @@ resources:
                 apt-get update
                 apt-get install -y lolcat
 +END_SRC yaml
-
 
 ** Get a flexible post-installation script with ~cloud-init~ and parameters
 
@@ -317,7 +317,8 @@ user-data.
 ** Nested templates
 
 It is possible to compose one logical stack with multiple templates. To that end
-we use nested templates:
+we use nested templates. Here is ~boot_vm_with_params.yml~ file describing how
+to boot a VM with parameters:
 
 +BEGIN_SRC yaml
 heat_template_version: 2017-09-01
@@ -345,6 +346,9 @@ resources:
             flavor: { get_param: param_flavor }
 +END_SRC
 
+Here's the ~boot_vms.yml~ file which use the previous one to declare multiple
+VMs:
+
 +BEGIN_SRC yaml
 heat_template_version: 2017-09-01
 
@@ -356,15 +360,77 @@ resources:
     webserver:
         type: boot_vm_with_params.yml
         properties:
-            name: webserver
-            flavor: m1.tiny
+            param_name: webserver
+            param_flavor: m1.tiny
     database:
         type: boot_vm_with_params.yml
         properties:
-            name: database
-            flavor: m1.medium
+            param_name: database
+            param_flavor: m1.medium
 +END_SRC
 
+You can then start multiple VMs with:
+
++BEGIN_SRC bash
+$ openstack stack create -t ./boot_vms.yml helloworld
++END_SRC bash
+
+** Share information between nested templates
+
+Let's declare now a template whose VM needs to determine the IP address of
+another VM at run time. Here's the content of ~./boot_vm_need_ip.yml~:
+
++BEGIN_SRC yaml
+heat_template_version: 2017-09-01
+
+description: >
+    Simply boot a VM but requires the remote host IP address!
+
+parameters:
+    IPAddress:
+        label: IPAddress of the remote host
+        type: string
+
+resources:
+    my_vm:
+        type: "OS::Nova::Server"
+        properties:
+            name: hello_world
+            image: debian-9
+            flavor: m1.small
+            key_name: admin
+            user_data: |
+                # This intrinsic function can replace strings in user-data:
+                str_replace:
+                    # We define here the parameters for our script
+                    params:
+                        ${IP_ADDRESS}: { get_param: IPAdress}
+                    # We define here the script
+                    template: |
+                        #!/bin/bash
+                        echo "${IP_ADDRESS} remote_host" > /etc/hosts
++END_SRC
+
+The attribute of the IP address can be fetched with the ~get_attr~ intrinsic function:
+
++BEGIN_SRC yaml
+heat_template_version: 2017-09-01
+
+description: >
+    Declare two VM resources based on a nested template!
+
+# Here we use intrinsic functions to get params
+resources:
+    webserver:
+        type: ./boot_vm_need_ip.yml
+        properties:
+            IPAdress: { get_attr: [database, HOSTIP] }
+    database:
+        type: ./boot_vm_with_params.yml
+        properties:
+            param_name: database
+            param_flavor: m1.medium
++END_SRC
 
 * Exercise: Automatic deployment of WordPress with Heat
 
