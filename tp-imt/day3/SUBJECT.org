@@ -36,6 +36,14 @@ Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slid
 
 * Table of Contents                                          :TOC@3:noexport:
 - [[#requirements-and-setup][Requirements and Setup]]
+- [[#heat-introduction][Heat introduction]]
+  - [[#boot-a-vm][Boot a VM]]
+  - [[#need-more-flexibility-lets-add-parameters][Need more flexibility: let's add parameters!]]
+  - [[#need-our-deployment-to-return-values-lets-use-outputs][Need our deployment to return values: let's use outputs!]]
+  - [[#integrate-cloud-init-in-heat][Integrate ~cloud-init~ in Heat]]
+  - [[#get-a-flexible-post-installation-script-with-cloud-init-and-parameters][Get a flexible post-installation script with ~cloud-init~ and parameters]]
+  - [[#nested-templates][Nested templates]]
+- [[#exercise-automatic-deployment-of-wordpress-with-heat][Exercise: Automatic deployment of WordPress with Heat]]
 - [[#footnotes][Footnotes]]
 
 * Requirements and Setup
@@ -84,6 +92,369 @@ machines.
 #+CAPTION: Script to setup OMH lab on OVH
 #+INCLUDE: "lib/setup-tp-imt-ovh.sh" src bash
 
+* Heat introduction
+
+In the previous sessions, we saw how to boot a VM with OpenStack, and execute a
+post-installation script using the ~user-data~ mechanism. Such mechanism can
+help us to install software but it is not enough to deploy a real Cloud
+application. Cloud applications are composed of multiple services that
+collaborate to deliver the application. Each service is a charge of an aspect of
+the application. This separation of concerns brings flexibility. If a single
+service is overloaded, it is common to deploy new units of this service to
+balance the load.
+
+Let's take a simple example! WordPress[fn:wordpress] is a very popular content
+management system (CMS) written in PHP, which is mainly used as a blog system.
+It is composed of two elements: a Web server (Apache) and a database (MySQL).
+Apache serves the PHP code of WordPress and store its information in the
+database.
+
+Automation is a very important concept for devops. Imagine you have to deploy
+several WordPress instances in your datacenter. You don't want to deploy and
+manage it manually. That is why, we are going to use an OpenStack project to
+automate the deployment of applications: OpenStack Heat.
+
+Heat is the OpenStack orchestrator: it eats templates (called HOT for Heat
+Orchestration Template - which are files written in yaml) describing the
+OpenStack infrastructure you want to deploy (e.g. vms, network, storages) as
+well as software configurations. Then the Heat engine is in charge of sending
+the appropriate requests to OpenStack to deploy the system described in your
+template.
+
+** Boot a VM
+
+The simplest HOT template your can declare describes how to boot a VM:
+
++BEGIN_SRC yaml
+#heat_template_version: 2017-09-01
+
+# Here we define a simple decription of the template (optional):
+description: >
+    Simply boot a VM!
+
+# Here we declare the resources to deploy:
+resources:
+    # Name of my resource:
+    my_vm:
+        type: "OS::Nova::Server"
+        properties:
+            name: hello_world
+            image: debian-9
+            flavor: m1.small
+            key_name: admin
++END_SRC
+
+As depicted in this example, the different OpenStack resources can be declared
+using types. Here, the type ~OS::Nova::Server~ can be used to declare a virtual
+machine. A type defines different properties, which should be here familiar for
+you. You can now run the stack:
+
++BEGIN_SRC bash
+$ openstack stack create -t ./boot_vm.yml helloworld
+$ openstack stack list
+$ openstack stack show helloworld
+$ openstack server list
+$ openstack stack delete helloworld
++END_SRC bash
+
+** Need more flexibility: let's add parameters!
+
+Templates can be more flexible with parameters. To that end you can:
+- declare the parameters to provide to your template;
+- use the intrinsic functions ~get_param~ to fetch them in your resource
+  declarations.
+Here's an example:
+
++BEGIN_SRC yaml
+heat_template_version: 2017-09-01
+
+description: >
+    Simply boot a VM with parameters!
+
+# Here we define parameters
+parameters:
+    param_flavor:
+        type: string
+        description: Flavor to use for servers
+        default: m1.small
+    param_key:
+        type: string
+        description: Key name to use for servers
+        default: admin
+
+# Here we use intrinsic functions to get params
+resources:
+    my_vm:
+        type: "OS::Nova::Server"
+        properties:
+            name: hello_world
+            image: debian-9
+            flavor: { get_param: param_flavor }
+            key_name: { get_param: param_key }
++END_SRC
+
+Create the new stack by providing parameters :
++BEGIN_SRC bash
+$ openstack stack create -t ./boot_vm_with_params.yml --parameter param_flavor=m1.medium helloworld
+$ openstack server list
+$ openstack stack delete helloworld
++END_SRC bash
+
+** Need our deployment to return values: let's use outputs!
+
+Templates can declare a set of attributes to return. For instance, you might
+need to know the IP address of a resource at run-time. To that end, you can
+declare outputs:
+
++BEGIN_SRC yaml
+heat_template_version: 2017-09-01
+
+description: >
+    Simply boot a VM and outputs its IP address!
+
+parameters:
+    param_flavor:
+        type: string
+        description: Flavor to use for servers
+        default: m1.small
+    param_key:
+        type: string
+        description: Key name to use for servers
+        default: admin
+
+resources:
+    my_vm:
+        type: "OS::Nova::Server"
+        properties:
+            name: hello_world
+            image: debian-9
+            flavor: { get_param: param_flavor }
+            key_name: { get_param: param_key }
+
+# We set here outputs (stack returned attributes)
+outputs:
+    HOSTIP:
+        description: IP address of the created instance
+        value: { get_attr: [my_vm, first_address] }
++END_SRC yaml
+
+We used here another intrinsic function: ~get_attr~ which is used to get the IP
+address from our VM. Returned values can be displayed with the CLI or fetched
+from other templates:
+
++BEGIN_SRC bash
+$ openstack stack create -t ./boot_vm_with_params.yml helloworld
+$ openstack stack output list
+$ openstack stack output show helloworld HOSTIP
+$ openstack stack delete helloworld
++END_SRC
+
+** Integrate ~cloud-init~ in Heat
+
+It is possible to declare user-data in the template:
+
++BEGIN_SRC yaml
+heat_template_version: 2017-09-01
+
+description: >
+    Simply boot a VM with a post-installation script!
+
+resources:
+    my_vm:
+        type: "OS::Nova::Server"
+        properties:
+            name: hello_world
+            image: debian-9
+            flavor: m1.small
+            key_name: admin
+            # We set here user-data
+            user_data: |
+                #!/bin/bash
+                apt-get update
+                apt-get install -y lolcat
++END_SRC yaml
+
+
+** Get a flexible post-installation script with ~cloud-init~ and parameters
+
+With Heat, it is possible to provide a parameter to your user-data at run-time!
+
++BEGIN_SRC yaml
+heat_template_version: 2017-09-01
+
+description: >
+    Simply boot a VM and set a post-installation script with params
+
+parameters:
+    PackageName:
+        label: Name of the package to install
+        type: string
+
+resources:
+    my_vm:
+        type: "OS::Nova::Server"
+        properties:
+            name: hello_world
+            image: debian-9
+            flavor: m1.small
+            key_name: admin
+            user_data: |
+                # This intrinsic function can replace strings in user-data:
+                str_replace:
+                    # We define here the parameters for our script
+                    params:
+                        ${PACKAGE_NAME}: { get_param: PackageName}
+                    # We define here the script
+                    template: |
+                        #!/bin/bash
+                        apt-get update
+                        apt-get install -y ${PACKAGE_NAME}
++END_SRC yaml
+
+We used here the new intrinsic function ~str_replace~ to replace strings in our
+user-data.
+
+** Nested templates
+
+It is possible to compose one logical stack with multiple templates. To that end
+we use nested templates:
+
++BEGIN_SRC yaml
+heat_template_version: 2017-09-01
+
+description: >
+    Simply boot a VM with parameters!
+
+# Here we define parameters
+parameters:
+    param_name:
+        type: string
+        description: Host name
+    param_flavor:
+        type: string
+        description: Host flavor
+
+# Here we use intrinsic functions to get params
+resources:
+    my_vm:
+        type: "OS::Nova::Server"
+        properties:
+            image: debian-9
+            key_name: admin
+            name: { get_param: param_name }
+            flavor: { get_param: param_flavor }
++END_SRC
+
++BEGIN_SRC yaml
+heat_template_version: 2017-09-01
+
+description: >
+    Declare two VM resources based on a nested template!
+
+# Here we use intrinsic functions to get params
+resources:
+    webserver:
+        type: boot_vm_with_params.yml
+        properties:
+            name: webserver
+            flavor: m1.tiny
+    database:
+        type: boot_vm_with_params.yml
+        properties:
+            name: database
+            flavor: m1.medium
++END_SRC
+
+
+* Exercise: Automatic deployment of WordPress with Heat
+
+You now have to use what you learned from the previous section to deploy a
+WordPress application using Heat. We are going to deploy WordPress inside two
+VMs: the first one holding the web server, the second one running the database:
+
+- VM1: Apache + PHP + WordPress code
+- VM2: MySQL
+
+To that end you must create three HOT files:
+
+- mysql.yml: containing the description of the VM running MySQL;
+- web_server.yml: containing the description of the VM running the Web server;
+- wp_app.yml: containing the description of the WordPress application
+  (~mysql.yml~ + ~web_server.yml~ as nested templates).
+
+To help you, we provide the post-installation script needed for both services.
+You should read them to understand what they do. The first one is for the
+database:
+
++BEGIN_SRC bash
+#!/usr/bin/env bash
+# Install and configure MariaDB for Debian 9.
+
+# Install MariaDB
+apt update -q
+apt install -q -y mariadb-server mariadb-client
+
+# Next line stops mysql install from popping up request for root password
+export DEBIAN_FRONTEND=noninteractive
+sed -i 's/127.0.0.1/0.0.0.0/' /etc/mysql/mariadb.conf.d/50-server.cnf
+systemctl restart mysql
+
+# Setup MySQL root password and create a user and add remote privs to app subnet
+mysqladmin -u root password ${DB_ROOTPASSWORD}
+
+# Create the wordpress database
+cat << EOSQL | mysql -u root --password=${DB_ROOTPASSWORD}
+FLUSH PRIVILEGES;
+CREATE USER '${DB_USER}'@'localhost';
+CREATE DATABASE ${DB_NAME};
+SET PASSWORD FOR '${DB_USER}'@'localhost'=PASSWORD("${DB_PASSWORD}");
+GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
+CREATE USER '${DB_USER}'@'%';
+SET PASSWORD FOR '${DB_USER}'@'%'=PASSWORD("${DB_PASSWORD}");
+GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASSWORD}';
+EOSQL
++END_SRC
+
+Here's the one for the web server:
+
++BEGIN_SRC bash
+#!/usr/bin/env bash
+# Install and configure Apache to serve Wordpress for Debian 9.
+
+apt-get update -y
+apt-get upgrade -y
+apt-get install -q -y --force-yes wordpress apache2 curl
+
+cat << EOF > /etc/apache2/sites-available/wp.conf
+Alias /wp/wp-content /var/lib/wordpress/wp-content
+Alias /wp /usr/share/wordpress
+<Directory /usr/share/wordpress>
+    Options FollowSymLinks
+    AllowOverride Limit Options FileInfo
+    DirectoryIndex index.php
+    Require all granted
+</Directory>
+<Directory /var/lib/wordpress/wp-content>
+    Options FollowSymLinks
+    Require all granted
+</Directory>
+EOF
+
+a2ensite wp
+service apache2 reload
+
+cat << EOF > /etc/wordpress/config-default.php
+<?php
+define('DB_NAME', '${DB_NAME}');
+define('DB_USER', '${DB_USER}');
+define('DB_PASSWORD', '${DB_PASSWORD}');
+define('DB_HOST', '${DB_HOST}');
+define('WP_CONTENT_DIR', '/var/lib/wordpress/wp-content');
+?>
+EOF
++END_SRC
+
+
 * Footnotes
 
 [fn:ovh] https://www.ovh.com/fr/cloud/
@@ -112,6 +483,8 @@ machines.
 [fn:rally-scenarios] https://github.com/openstack/rally/tree/master/rally/plugins/openstack/scenarios
 [fn:shaker-scenarios] https://github.com/openstack/shaker/tree/master/shaker/scenarios/openstack
 [fn:dvr] https://wiki.openstack.org/wiki/Neutron/DVR
+[fn:wordpress] https://wordpress.org/
+[fn:heat] https://wiki.openstack.org/wiki/Heat
 
 # Local Variables:
 # org-html-postamble: "<p class=\"author\">Author: %a</p>
