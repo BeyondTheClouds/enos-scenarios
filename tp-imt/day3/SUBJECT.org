@@ -1,41 +1,11 @@
-#+TITLE: Operate Resources in Public and Private Clouds
-#+TITLE: Thanks to OpenStack
-#+SUBTITLE: The case of OMH -- Online Mines Hosting
-#+AUTHOR: Ronan-Alexandre Cherrueau, Dimitri Pertin, Didier Iscovery
-#+EMAIL: {firstname.lastname}@inria.fr
-#+DATE: <2018-02-08 Thu>
-
-#+LANGUAGE: en
-#+OPTIONS: ':t email:t toc:nil
-
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../timeline.css" />
-
-#+MACRO: eg /e.g./,
-#+MACRO: ie /i.e./,
-#+MACRO: i18n /$1/ (en anglais, $2)
-#+MACRO: voucher2 ~TODO:fill-me~
-
-
-#+BEGIN_abstract
-OpenStack has become the de-facto solution to operate compute, network
-and storage resources in public and private clouds. In this lab, we
-are going to:
-- Deploy and configure OpenStack using
-  EnOS[fn:enos-paper][fn:enos-code] (Day 1).
-- Operate this OpenStack to manage IaaS resources (e.g. boot VMs) (Day
-  1/Day 2).
-- Start your OMH -- Online Mines Hosting -- company that deploys
-  Wordpress as a Service (Day 2).
-- Automatize all the stuff with the Heat template engine (i.e., manage
-  your cloud from the sofa! -- Day 2).
-
-Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slides.pdf][there]].
-#+END_abstract
-
+#+INCLUDE: ../header.org
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../timeline.css"/>
 #+TOC: headlines 3
 
 * Table of Contents                                          :TOC@3:noexport:
 - [[#requirements-and-setup][Requirements and Setup]]
+  - [[#source-of-the-lab][Source of the Lab]]
+  - [[#setup][Setup]]
 - [[#heat-introduction][Heat introduction]]
   - [[#boot-a-vm][Boot a VM]]
   - [[#need-more-flexibility-lets-add-parameters][Need more flexibility: let's add parameters!]]
@@ -45,17 +15,30 @@ Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slid
   - [[#nested-templates][Nested templates]]
   - [[#share-information-between-nested-templates][Share information between nested templates]]
 - [[#exercise-automatic-deployment-of-wordpress-with-heat][Exercise: Automatic deployment of WordPress with Heat]]
+- [[#the-quakejs-secret-project][The QuakeJs Secret Project]]
+- [[#appendix][Appendix]]
+  - [[#reservationyaml][reservation.yaml]]
+  - [[#patchgaleracnf][patch/galera.cnf]]
 - [[#footnotes][Footnotes]]
 
 * Requirements and Setup
+** Source of the Lab
+Get the source of lab at [[http://enos.irisa.fr/tp-imt/tp-imt.tar.gz]].
+#+BEGIN_SRC bash
+$ curl -O http://enos.irisa.fr/tp-imt/tp-imt.tar.gz
+$ tar xf tp-imt
+$ cd tp-imt/day3/lib
+#+END_SRC
+
+** Setup
 During the last session we used an OVH account to setup 2 machines,
 put them into a private network and then install OpenStack on top of
 them (see [[file:~/prog/inria-perso/enos-scenarios/tp-imt/day1/SUBJECT.org::#sec:ovh][Day 2 → Sec 1]]). We got these 2 machines using the web
 interface of OVH. However, remember that the /Public Cloud/
 infrastructure of OVH is managed by OpenStack itself. To convince
-yourself, first activate the new voucher for the current session
-{{{voucher2}}}. Then, from your project, click on the /OpenStack/ tab.
-From there, you can open OVH OpenStack Horizon.
+yourself, first activate the new voucher for the current session.
+Then, from your project, click on the /OpenStack/ tab. From there, you
+can open OVH OpenStack Horizon.
 
 #+CAPTION: Open the Horizon of your OVH Public Cloud project.
 [[file:images/ovh-to-horizon.png]]
@@ -85,11 +68,11 @@ Downloads that OpenStack RC File, then put it into the lib directory
 and rename it ~openrc.sh~. With the OpenStack RC file, we can
 automatize all the setup. A script that call proper OpenStack commands
 is available online at [[file:lib/setup-tp-imt-ovh.sh]]. In this script,
-we reuse the [[file:../day2/lib/os-control-compute.sh]] and
-[[file:../day2/lib/os-compute.sh]] script from the previous session. Here,
-we give theme to cloud init ({{{ie}}} ~--user-data~) to provision
+we reuse the [[file:../day2/lib/os-control.sh]] and
+[[file:../day2/lib/os-compute1.sh]] script from the previous session. Here,
+we give them to cloud init ({{{ie}}} ~--user-data~) to provision
 machines. Note, to execute this script you need to install
-[[https://pypi.python.org/pypi/virtualenv][~virtualenv~]].
+[[https://pypi.python.org/pypi/virtualenv][~virtualenv~]]. You may also require [[https://packages.debian.org/stretch/build-essential][~gcc~]], [[https://packages.debian.org/stretch/libffi-dev][~libffi~]] and [[~libssl~][~libssl~]].
 
 #+CAPTION: Script to setup OMH lab on OVH
 #+INCLUDE: "lib/setup-tp-imt-ovh.sh" src bash
@@ -127,7 +110,7 @@ template.
 
 The simplest HOT template your can declare describes how to boot a VM:
 
-+BEGIN_SRC yaml
+#+BEGIN_SRC yaml
 #heat_template_version: 2017-09-01
 
 # Here we define a simple decription of the template (optional):
@@ -144,20 +127,20 @@ resources:
             image: debian-9
             flavor: m1.small
             key_name: admin
-+END_SRC
+#+END_SRC
 
 As depicted in this example, the different OpenStack resources can be declared
 using types. Here, the type ~OS::Nova::Server~ can be used to declare a virtual
 machine. A type defines different properties, which should be here familiar for
 you. You can now run the stack:
 
-+BEGIN_SRC bash
+#+BEGIN_SRC bash
 $ openstack stack create -t ./boot_vm.yml helloworld
 $ openstack stack list
 $ openstack stack show helloworld
 $ openstack server list
 $ openstack stack delete helloworld
-+END_SRC bash
+#+END_SRC
 
 ** Need more flexibility: let's add parameters!
 
@@ -167,7 +150,7 @@ Templates can be more flexible with parameters. To that end you can:
   declarations.
 Here's an example:
 
-+BEGIN_SRC yaml
+#+BEGIN_SRC yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -193,14 +176,14 @@ resources:
             image: debian-9
             flavor: { get_param: param_flavor }
             key_name: { get_param: param_key }
-+END_SRC
+#+END_SRC
 
 Create the new stack by providing parameters :
-+BEGIN_SRC bash
+#+BEGIN_SRC bash
 $ openstack stack create -t ./boot_vm_with_params.yml --parameter param_flavor=m1.medium helloworld
 $ openstack server list
 $ openstack stack delete helloworld
-+END_SRC bash
+#+END_SRC
 
 ** Need our deployment to return values: let's use outputs!
 
@@ -208,7 +191,7 @@ Templates can declare a set of attributes to return. For instance, you might
 need to know the IP address of a resource at run-time. To that end, you can
 declare outputs:
 
-+BEGIN_SRC yaml
+#+BEGIN_SRC yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -238,24 +221,24 @@ outputs:
     HOSTIP:
         description: IP address of the created instance
         value: { get_attr: [my_vm, first_address] }
-+END_SRC yaml
+#+END_SRC
 
 We used here another intrinsic function: ~get_attr~ which is used to get the IP
 address from our VM. Returned values can be displayed with the CLI or fetched
 from other templates (we will see this last case latter):
 
-+BEGIN_SRC bash
+#+BEGIN_SRC bash
 $ openstack stack create -t ./boot_vm_with_params.yml helloworld
 $ openstack stack output list
 $ openstack stack output show helloworld HOSTIP
 $ openstack stack delete helloworld
-+END_SRC
+#+END_SRC
 
 ** Integrate ~cloud-init~ in Heat
 
 It is possible to declare user-data in the template:
 
-+BEGIN_SRC yaml
+#+BEGIN_SRC yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -274,13 +257,13 @@ resources:
                 #!/bin/bash
                 apt-get update
                 apt-get install -y lolcat
-+END_SRC yaml
+#+END_SRC
 
 ** Get a flexible post-installation script with ~cloud-init~ and parameters
 
 With Heat, it is possible to provide a parameter to your user-data at run-time!
 
-+BEGIN_SRC yaml
+#+BEGIN_SRC yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -310,7 +293,7 @@ resources:
                         #!/bin/bash
                         apt-get update
                         apt-get install -y ${PACKAGE_NAME}
-+END_SRC yaml
+#+END_SRC
 
 We used here the new intrinsic function ~str_replace~ to replace strings in our
 user-data.
@@ -321,7 +304,7 @@ It is possible to compose one logical stack with multiple templates. To that end
 we use nested templates. Here is ~boot_vm_with_params.yml~ file describing how
 to boot a VM with parameters:
 
-+BEGIN_SRC yaml
+#+BEGIN_SRC yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -345,12 +328,12 @@ resources:
             key_name: admin
             name: { get_param: param_name }
             flavor: { get_param: param_flavor }
-+END_SRC
+#+END_SRC
 
 Here's the ~boot_vms.yml~ file which use the previous one to declare multiple
 VMs:
 
-+BEGIN_SRC yaml
+#+BEGIN_SRC yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -368,20 +351,20 @@ resources:
         properties:
             param_name: database
             param_flavor: m1.medium
-+END_SRC
+#+END_SRC
 
 You can then start multiple VMs with:
 
-+BEGIN_SRC bash
+#+BEGIN_SRC bash
 $ openstack stack create -t ./boot_vms.yml helloworld
-+END_SRC bash
+#+END_SRC
 
 ** Share information between nested templates
 
 Let's declare now a template whose VM needs to determine the IP address of
 another VM at run time. Here's the content of ~./boot_vm_need_ip.yml~:
 
-+BEGIN_SRC yaml
+#+BEGIN_SRC yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -410,11 +393,11 @@ resources:
                     template: |
                         #!/bin/bash
                         echo "${IP_ADDRESS} remote_host" > /etc/hosts
-+END_SRC
+#+END_SRC
 
 The attribute of the IP address can be fetched with the ~get_attr~ intrinsic function:
 
-+BEGIN_SRC yaml
+#+BEGIN_SRC yaml
 heat_template_version: 2017-09-01
 
 description: >
@@ -431,7 +414,7 @@ resources:
         properties:
             param_name: database
             param_flavor: m1.medium
-+END_SRC
+#+END_SRC
 
 * Exercise: Automatic deployment of WordPress with Heat
 
@@ -453,7 +436,7 @@ To help you, we provide the post-installation script needed for both services.
 You should read them to understand what they do. The first one is for the
 database:
 
-+BEGIN_SRC bash
+#+BEGIN_SRC bash
 #!/usr/bin/env bash
 # Install and configure MariaDB for Debian 9.
 
@@ -480,11 +463,11 @@ CREATE USER '${DB_USER}'@'%';
 SET PASSWORD FOR '${DB_USER}'@'%'=PASSWORD("${DB_PASSWORD}");
 GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASSWORD}';
 EOSQL
-+END_SRC
+#+END_SRC
 
 Here's the one for the web server:
 
-+BEGIN_SRC bash
+#+BEGIN_SRC bash
 #!/usr/bin/env bash
 # Install and configure Apache to serve Wordpress for Debian 9.
 
@@ -519,16 +502,16 @@ define('DB_HOST', '${DB_HOST}');
 define('WP_CONTENT_DIR', '/var/lib/wordpress/wp-content');
 ?>
 EOF
-+END_SRC
+#+END_SRC
 
-* The QuakeJs Secret Project                                       :noexport:
+* The QuakeJs Secret Project
 See http://www.quakejs.com/
 
 Start the QuakeJs VM
 : openstack server create --network provider-net --image debian-9 --flavor m1.small --key-name admin --user-data ./quakejs.sh --wait quakejs-vm
 : watch openstack console log show --lines=20 quakejs-vm
 
-#+INCLUDE: "~/prog/inria-perso/enos-scenarios/tp-imt/day3/lib/quakejs.sh"
+#+INCLUDE: "~/prog/inria-perso/enos-scenarios/tp-imt/day3/lib/quakejs.sh" src bash
 
 Make a snapshot:
 : nova image-create quakejs-vm quakejs-vm
@@ -552,10 +535,18 @@ Start the game server
 : node build/ioq3ded.js +set fs_game baseq3 +set dedicated 1 +exec server.cfg
 
 Expose the Game server on 27960
-: sudo iptables -t nat -A PREROUTING --dst $(hostname -I | cut -f1 -d ' ') -p tcp -m tcp --dport 27960 -j DNAT --to-destination 192.168.0.9:27960
-: sudo iptables -t nat -A PREROUTING --dst $(hostname -I | cut -f1 -d ' ') -p udp -m udp --dport 27960 -j DNAT --to-destination 192.168.0.9:27960
+: sudo iptables -t nat -A PREROUTING --dst $(hostname -I | cut -f1 -d ' ') -p tcp -m tcp --dport 27960 -j DNAT --to-destination 192.168.0.10:27960
+: sudo iptables -t nat -A PREROUTING --dst $(hostname -I | cut -f1 -d ' ') -p udp -m udp --dport 27960 -j DNAT --to-destination 192.168.0.10:27960
 
+Perform a live migration of the game server
 : openstack server migrate --live os-compute2 quakejs-server
+
+* Appendix
+** reservation.yaml
+#+INCLUDE: "lib/reservation.yml" src bash
+
+** patch/galera.cnf
+#+INCLUDE: "lib/patch/galera.cnf" src bash
 
 
 * Footnotes

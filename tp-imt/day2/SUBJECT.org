@@ -1,54 +1,34 @@
-#+TITLE: Operate Resources in Public and Private Clouds
-#+TITLE: Thanks to OpenStack
-#+SUBTITLE: The case of OMH -- Online Mines Hosting
-#+AUTHOR: Ronan-Alexandre Cherrueau, Dimitri Pertin, Didier Iscovery
-#+EMAIL: {firstname.lastname}@inria.fr
-#+DATE: <2017-12-20 Wed>
-
-#+LANGUAGE: en
-#+OPTIONS: ':t email:t toc:nil
-
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../timeline.css" />
-
-#+MACRO: eg /e.g./,
-#+MACRO: ie /i.e./,
-#+MACRO: i18n /$1/ (en anglais, $2)
-
-#+BEGIN_abstract
-OpenStack has become the de-facto solution to operate compute, network
-and storage resources in public and private clouds. In this lab, we
-are going to:
-- Deploy and configure OpenStack using
-  EnOS[fn:enos-paper][fn:enos-code] (Day 1).
-- Operate this OpenStack to manage IaaS resources (e.g. boot VMs) (Day
-  1/Day 2).
-- Start your OMH -- Online Mines Hosting -- company that deploys
-  Wordpress as a Service (Day 2).
-- Automatize all the stuff with the Heat template engine (i.e., manage
-  your cloud from the sofa! -- Day 2).
-
-Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slides.pdf][there]].
-#+END_abstract
-
+#+INCLUDE: ../header.org
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../timeline.css"/>
 #+TOC: headlines 3
 
 * Table of Contents                                          :TOC@3:noexport:
 - [[#requirements-and-setup][Requirements and Setup]]
+  - [[#source-of-the-lab][Source of the Lab]]
   - [[#environment][Environment]]
     - [[#set-the-experimental-environment][Set the experimental environment]]
   - [[#finish-the-initialization-of-openstack][Finish the initialization of OpenStack]]
     - [[#access-horizon][Access Horizon]]
-    - [[#ping-vm-from-the-frontend][Ping VM from the Frontend]]
     - [[#vm-ping-the-internet][VM ping the Internet]]
 - [[#omh----online-mines-hosting][OMH -- Online Mines Hosting]]
   - [[#clean-the-environment][Clean the environment]]
 - [[#automatize-the-deployment-with-heat][Automatize the deployment with Heat]]
 - [[#appendix][Appendix]]
+  - [[#reservationyaml][reservation.yaml]]
+  - [[#patchgaleracnf][patch/galera.cnf]]
   - [[#installs-mariadb-on-debian-9][Installs MariaDB on Debian 9]]
   - [[#installs-wordpress-on-debian-9][Installs Wordpress on Debian 9]]
 - [[#footnotes][Footnotes]]
 
 * Requirements and Setup
+** Source of the Lab
+Get the source of lab at [[http://enos.irisa.fr/tp-imt/tp-imt.tar.gz]].
+#+BEGIN_SRC bash
+$ curl -O http://enos.irisa.fr/tp-imt/tp-imt.tar.gz
+$ tar xf tp-imt
+$ cd tp-imt/day2/lib
+#+END_SRC
+
 ** Environment
 :PROPERTIES:
 :CUSTOM_ID: sec:ovh
@@ -67,7 +47,7 @@ the deployment and the management of real applications.
 During the last session, you deployed all the OpenStack services in a single
 virtual machine. Let's start gently by deploying OpenStack over two virtual
 machines. To that end, you will need first to set an experimental environment
-composed of two virtual machine (called os_controller_compute and os_compute)
+composed of two virtual machine (called ~os-control~ and ~os-compute1~)
 from the OVH public Cloud interface, interconnected by a private network. Since
 you are now familiar with EnOS[fn:enos-paper][fn:enos-code], we are going to run
 it from the first VM to deploy the OpenStack services on our OVH VMs.
@@ -81,11 +61,10 @@ OpenStack services in a single VM:
 
 Today, we are going to repeat this operation for the first OVH VM, and we will
 deploy only the compute services to the second one, as depicted here:
-- ~os_control_compute~:
+- ~os-control~:
   + ~control~
-  + ~compute~
   + ~network~
-- ~os_compute~:
+- ~os-compute1~:
   + ~compute~
 
 The following depicts the status of the different components in play during the
@@ -97,7 +76,7 @@ lab.
 |                                       |
 |                                       |
 |   +---------------------------+       |
-|   |  os_control_compute VM    |       |
+|   |  os-control VM            |       |
 |   |     ~/rsc <- - - - - -  - - - - - - - - - -  EnOS sources & configuration files
 |   |                           |       |
 |   |  * docker container 1 +   |       |
@@ -108,7 +87,7 @@ lab.
 |   +---------------------------+       |
 
 |   +---------------------------+       |
-|   |       os_compute VM       |       |
+|   |      os-compute1 VM       |       |
 |   |                           |       |
 |   |  * docker container 1 +   |       |
 |   |  * docker container 2 +   |       |
@@ -159,7 +138,7 @@ you did in our first session.
 ***** Create a private network
 Create a private network (using either the interface or the CLI) with the
 following characteristics:
-- name: project-net
+- name: ~provider-net~
 - *No* VLAN
 - *No* dhcp
 - Only on Gravelines
@@ -194,30 +173,29 @@ here click on ~Actions > Add a server~ and select the following characteristics:
   + Read and provide the script below as post-installation script;
   + Link the machine to your private network.
 
-#+INCLUDE: "lib/os-control-compute.sh" src bash
+#+INCLUDE: "lib/os-control.sh" src bash
 
 After clicking on ~Launch now~, a new machine should appear in the interface.
 You can validate the VM is active with ~openstack server list~. Also try to ping
 and SSH to this machine:
 
-: local_host:~/ ssh -i ~/.ssh/id_tp_omh debian@<public_ip_os_control_compute>
+: local_host:~/ ssh -i ~/.ssh/id_tp_omh debian@<public_ip_os-control>
 
 Boot the second machine similarly but provide the following post-installation
 script:
 
-#+INCLUDE: "lib/os-compute.sh" src bash
+#+INCLUDE: "lib/os-compute1.sh" src bash
 
 We should copy the private counterpart of the SSH key pair on the first VM so
 that it can be used to ease the SSH connection to the second machine. To that
 end we use ~scp~ - type from your local machine:
 
-: local_host:~/ scp -i ~/.ssh/id_tp_omh ~/.ssh/id_tp_omh debian@<public_ip_os_control_compute>:/home/debian/.ssh/id_rsa
+: local_host:~/ scp -i ~/.ssh/id_tp_omh ~/.ssh/id_tp_omh debian@<public_ip_os-control>:/home/debian/.ssh/id_rsa
 
-Confirm you can SSH from ~os_control_compute~ to ~os_compute~:
+Confirm you can SSH from ~os-control~ to ~os-compute1~:
 
-: local_host:~/ ssh -i ~/.ssh/id_tp_omh debian@<public_ip_os_control_compute>
-
-: os_control_compute:~/ ssh -i ~/.ssh/id_tp_omh debian@<private_ip_os_control_compute>
+: local_host:~/ ssh -i ~/.ssh/id_tp_omh debian@<public_ip_os-control>
+: os-control:~/ ssh -i ~/.ssh/id_tp_omh debian@<private_ip_os-control>
 
 ** Finish the initialization of OpenStack
 Wait the intervention of the instructor to finish the initialization
@@ -231,18 +209,18 @@ are offered to you:
 
 - Lynx :: ~lynx~ is a text-based web browser for use in a terminal.
 #+BEGIN_SRC bash
-debian@os_control_compute$ lynx http://192.168.0.249:80
+debian@os-control$ lynx http://192.168.0.249:80
 #+END_SRC
 
 - DNAT            :: Destination NAT (DNAT) changes the destination
      address of packets. We can use DNAT and tell the frontend
-     ({{{ie}}}, ~debian@os_control_compute~), which is publicly
+     ({{{ie}}}, ~debian@os-control~), which is publicly
      reachable at ~<public_ip_ens3>~, to change the destination of
      packet incoming on ~<public_ip_ens3>~ port 80 to
      ~192.168.0.249:80~. This makes Horizon accessible through
      http://<public_ip_ens3>:80.
 #+BEGIN_SRC bash
-debian@os_control_compute$ sudo iptables -t nat -A PREROUTING\
+debian@os-control$ sudo iptables -t nat -A PREROUTING\
   --dst <public_ip_ens3> -p tcp --dport 80\
   -j DNAT --to-destination 192.168.0.249:80
 #+END_SRC
@@ -257,14 +235,14 @@ my-fancy-zsh-prompt λ → ssh -NL 8080:192.168.0.249:80 \
   -l debian -i ~/.ssh/id_tp_omh <public_ip_ens3>
 #+END_SRC
 
-*** Ping VM from the Frontend
+*** Ping VM from the Frontend                                      :noexport:
 The neutron router called ~router~ makes the link between the public
 and private network. If you want to ping your VMs from the Frontend
-({{{ie}}}, ~debian@os_control_compute~), then add a route that goes
+({{{ie}}}, ~debian@os-control~), then add a route that goes
 through the router.
 
 #+BEGIN_SRC
-debian@os_control_compute$ sudo ip route add 10.0.0.0/24 via\
+debian@os-control$ sudo ip route add 10.0.0.0/24 via\
   $(openstack router show router -c external_gateway_info -f value\
     |jq -r ".external_fixed_ips[0] | .ip_address")
 #+END_SRC
@@ -277,7 +255,7 @@ debian@os_control_compute$ sudo ip route add 10.0.0.0/24 via\
 Before doing that part, first remind basics of OpenStack by redoing
 the "Play with OpenStack" section of the previous session (see [[file:../day1/SUBJECT.org::#sec:play-with-os][Day 1 →
 Sec 3]]). Horizon is available behind the public IP of
-~os_control_compute~.
+~os-control~.
 #+END_NOTE
 
 Wordpress[fn:wordpress] is the most popular content management system
@@ -307,21 +285,21 @@ We are going to run several Debian9 VMs in this section. But, a
 Debian9 takes a lot more of resources to run. For this reason, you
 have to release all your resources before going further.
 
-First, delete currently running VMs.
+Delete currently running VMs.
 #+BEGIN_SRC bash
-debian@os_control_compute:~$ for vm in $(openstack server list -c Name -f value); do\
+debian@os-control:~$ for vm in $(openstack server list -c Name -f value); do\
   echo "Delete ${vm}...";\
   openstack server delete "${vm}";\
 done
 #+END_SRC
 
-In the same manner, delete floating IPs.
-#+BEGIN_SRC bash
-debian@os_control_compute:~$ for ip in $(openstack floating ip list -c "Floating IP Address" -f value); do\
-  echo "Delete ${ip}...";\
-  openstack floating ip delete "${ip}";\
-done
-#+END_SRC
+# In the same manner, delete floating IPs.
+# #+BEGIN_SRC bash
+# debian@os-control:~$ for ip in $(openstack floating ip list -c "Floating IP Address" -f value); do\
+#   echo "Delete ${ip}...";\
+#   openstack floating ip delete "${ip}";\
+# done
+# #+END_SRC
 
 ** Wordpress MySQL Database                                        :noexport:
 Start a VM with ~wordpress-db~ name, ~debian-9~ image, ~m1.small~
@@ -354,25 +332,31 @@ openstack server create --wait --image debian-9\
 
 Then, attach a floating ip to that VM.
 #+BEGIN_SRC bash
-debian@os_control_compute:~$ openstack server add floating ip\
+debian@os-control:~$ openstack server add floating ip\
   wordpress-wp\
   $(openstack floating ip create public -c floating_ip_address -f value)
 #+END_SRC
 
 Finally, you can reach WordPress.
 #+BEGIN_SRC bash
-debian@os_control_compute:~$ lynx <floating_ip>/wp
+debian@os-control:~$ lynx <floating_ip>/wp
 #+END_SRC
 
 * Automatize the deployment with Heat
 [[https://docs.google.com/presentation/d/14Mzr_hMvH6AB7yUqUilbrnkxpQTTVAJnKZ1W-7zIE-0/edit#slide=id.p][/Dim's slides/]]
 
 * Appendix
+** reservation.yaml
+#+INCLUDE: "lib/reservation.yml" src bash
+
+** patch/galera.cnf
+#+INCLUDE: "lib/patch/galera.cnf" src bash
+
 ** Installs MariaDB on Debian 9
-#+INCLUDE: "../lib/install-mariadb.sh" src bash
+#+INCLUDE: "lib/install-mariadb.sh" src bash
 
 ** Installs Wordpress on Debian 9
-#+INCLUDE: "../lib/install-wp.sh" src bash
+#+INCLUDE: "lib/install-wp.sh" src bash
 
 * Footnotes
 
@@ -407,7 +391,7 @@ debian@os_control_compute:~$ lynx <floating_ip>/wp
 # org-html-postamble: "<p class=\"author\">Author: %a</p>
 # <p class=\"email\">Email: %e</p>
 # <p class=\"github\">Find a typo, wanna make a proposition:
-#  <a href=\"https://github.com/BeyondTheClouds/enos-scenarios/issues/new?title=tp-imt\">open an issue</a></p>
+#  <a href=\"https://github.com/BeyondTheClouds/enos-scenarios/issues/new?title=tp-imt (Day 2)\">open an issue</a></p>
 # <p class=\"date\">Last modification: %C</p>
 # <p class=\"license\">This work is licensed under a <a rel=\"license\" href=\"http://creativecommons.org/licenses/by-sa/4.0/\">Creative Commons Attribution-ShareAlike 4.0 International License</a>.</p>
 # <p class=\"creator\">%c – theme by

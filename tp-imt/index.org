@@ -1,69 +1,13 @@
-#+TITLE: Operate Resources in Public and Private Clouds
-#+TITLE: Thanks to OpenStack
-#+SUBTITLE: The case of OMH -- Online Mines Hosting
-#+AUTHOR: Ronan-Alexandre Cherrueau, Dimitri Pertin, Didier Iscovery
-#+EMAIL: {firstname.lastname}@inria.fr
-#+DATE: <2017-12-20 Wed>
-
-#+OPTIONS: ':t email:t toc:nil
-
+#+INCLUDE: header.org
 #+HTML_HEAD: <link rel="stylesheet" type="text/css" href="timeline.css"/>
-
-#+MACRO: eg /e.g./,
-#+MACRO: ie /i.e./,
-#+MACRO: i18n /$1/ (en anglais, $2)
-
-# https://orgmode.org/worg/org-tutorials/org-publish-html-tutorial.html#org41273ed
-
-#+BEGIN_abstract
-OpenStack has become the de-facto solution to operate compute, network
-and storage resources in public and private clouds. In this lab, we
-are going to:
-- Deploy and configure OpenStack using
-  EnOS[fn:enos-paper][fn:enos-code] (Day 1).
-- Operate this OpenStack to manage IaaS resources (e.g. boot VMs) (Day
-  1/Day 2).
-- Start your OMH -- Online Mines Hosting -- company that deploys
-  Wordpress as a Service (Day 2).
-- Automatize all the stuff with the Heat template engine (i.e., manage
-  your cloud from the sofa! -- Day 2).
-
-Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slides.pdf][there]].
-#+END_abstract
 
 - [[file:day1/SUBJECT.org][Day 1]]
 - [[file:day2/SUBJECT.org][Day 2]]
 - [[file:day3/SUBJECT.org][Day 3]]
 
-* Footnotes
-
-[fn:ovh] https://www.ovh.com/fr/cloud/
-[fn:ovh-vrack] https://www.ovh.com/manager/cloud/index.html#/vrack
-[fn:ovh-vrack-doc] https://docs.ovh.com/fr/public-cloud/utiliser-le-vrack-et-les-reseaux-prives-avec-les-instances-public-cloud/https://docs.ovh.com/fr/public-cloud/utiliser-le-vrack-et-les-reseaux-prives-avec-les-instances-public-cloud/
-[fn:cloudinit] https://cloud-init.io/
-[fn:cloudinit_modules] http://cloudinit.readthedocs.io/en/latest/topics/modules.html
-[fn:wordpress] https://wordpress.org/
-[fn:devstack] https://docs.openstack.org/devstack/latest/
-[fn:puppet] https://docs.openstack.org/puppet-openstack-guide/latest/
-[fn:kolla-ansible] https://docs.openstack.org/developer/kolla-ansible/
-[fn:enos-paper] https://hal.inria.fr/hal-01415522v2
-[fn:enos-code] https://github.com/BeyondTheClouds/enos
-[fn:virtualbox-downloads] https://www.virtualbox.org/wiki/Downloads
-[fn:vagrant-downloads] https://www.vagrantup.com/downloads.html
-[fn:enos-box] http://enos.irisa.fr/vagrant-box/polytech.box
-[fn:enos-provider] https://enos.readthedocs.io/en/latest/provider.html
-[fn:enos-g5k-provider] https://enos.readthedocs.io/en/latest/provider/grid5000.html
-[fn:enos-vagrant-provider] https://enos.readthedocs.io/en/latest/provider/vagrant.html
-[fn:vagrantfile] https://www.vagrantup.com/docs/vagrantfile/index.html
-[fn:cadvisor] https://github.com/google/cadvisor
-[fn:collectd] https://collectd.org/
-[fn:grafana] https://grafana.com/
-[fn:rally] https://rally.readthedocs.io/en/latest/
-[fn:shaker] https://pyshaker.readthedocs.io/en/latest/
-[fn:rally-scenarios] https://github.com/openstack/rally/tree/master/rally/plugins/openstack/scenarios
-[fn:shaker-scenarios] https://github.com/openstack/shaker/tree/master/shaker/scenarios/openstack
-[fn:dvr] https://wiki.openstack.org/wiki/Neutron/DVR
-
+* COMMENT Local variables
+See http://www.i3s.unice.fr/~malapert/org/tips/emacs_orgmode.html#orgheadline32
+See https://orgmode.org/worg/org-tutorials/org-publish-html-tutorial.html#org41273ed
 
 # Local Variables:
 # org-html-postamble: "<p class=\"author\">Author: %a</p>
@@ -71,11 +15,32 @@ Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slid
 # <p class=\"github\">Find a typo, wanna make a proposition:
 #  <a href=\"https://github.com/BeyondTheClouds/enos-scenarios/issues/new?title=tp-imt\">open an issue</a></p>
 # <p class=\"date\">Last modification: %C</p>
-# <p class=\"license\">This work is licensed under a <a rel=\"license\" href=\"http://creativecommons.org/licenses/by-sa/4.0/\">Creative Commons Attribution-ShareAlike 4.0 International License</a>.</p>
+# <p class=\"license\">This work is licensed under a
+#   <a rel=\"license\" href=\"http://creativecommons.org/licenses/by-sa/4.0/\">
+#     Creative Commons Attribution-ShareAlike 4.0 International License
+#   </a>.
+# </p>
 # <p class=\"creator\">%c – theme by
 #  <a href=\"http://gongzhitaao.org/orgcss\">http://gongzhitaao.org/orgcss</a></p>"
 # org-confirm-babel-evaluate: nil
 # org-export-with-sub-superscripts: {}
 # eval: (progn (smartparens-mode t) (add-to-list (quote org-structure-template-alist) (quote ("N" "#+BEGIN_NOTE\n?\n#+END_NOTE"))))
-# eval: (progn (with-eval-after-load (quote ox-publish) (let* ((this-dir (file-name-directory (or load-file-name buffer-file-name))) (html-dir (expand-file-name "public_html" this-dir))) (setq org-publish-project-alist (\` (("tp-notes" :base-directory (\, this-dir) :base-extension "org" :publishing-directory (\, html-dir) :recursive t :publishing-function org-html-publish-to-html :headline-levels 4 :auto-preamble t) ("tp-static" :base-directory (\, this-dir) :base-extension "css\\|js\\|png\\|jpg\\|gif\\|pdf\\|mp3\\|ogg\\|swf\\|py\\|sh" :publishing-directory (\, html-dir) :recursive t :publishing-function org-publish-attachment) ("tp" :components ("tp-notes" "tp-static"))))))))
+# eval: (with-eval-after-load 'ox-publish
+#  (let* ((this-dir (file-name-directory (or load-file-name buffer-file-name)))
+#         (html-dir (expand-file-name "public_html" this-dir)))
+#    (setq org-publish-project-alist `(("tp-notes" :base-directory ,this-dir
+#                                                  :publishing-directory ,html-dir
+#                                                  :base-extension "org"
+#                                                  :recursive t
+#                                                  :publishing-function org-html-publish-to-html
+#                                                  :headline-levels 4
+#                                                  :html-link-home "index.html"
+#                                                  :html-link-up "../index.html"
+#                                                  :auto-preamble t)
+#                                     ("tp-static" :base-directory ,this-dir
+#                                                  :publishing-directory ,html-dir
+#                                                  :base-extension "css\\|js\\|png\\|jpg\\|gif\\|pdf\\|mp3\\|ogg\\|swf\\|sh\\|py\\|yml"
+#                                                  :recursive t
+#                                                  :publishing-function org-publish-attachment)
+#                                     ("tp" :components ("tp-notes" "tp-static"))))))
 # End:

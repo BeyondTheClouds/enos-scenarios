@@ -1,0 +1,31 @@
+#+TITLE: Operate Resources in Public and Private Clouds
+#+TITLE: Thanks to OpenStack
+#+SUBTITLE: The case of OMH -- Online Mines Hosting
+#+AUTHOR: Ronan-Alexandre Cherrueau, Dimitri Pertin, Didier Iscovery
+#+EMAIL: {firstname.lastname}@inria.fr
+#+DATE: <2018>
+
+#+LANGUAGE: en
+#+OPTIONS: ':t
+#+OPTIONS: email:t
+#+OPTIONS: toc:nil
+
+#+MACRO: eg /e.g./,
+#+MACRO: ie /i.e./,
+#+MACRO: i18n /$1/ (en anglais, $2)
+
+#+BEGIN_abstract
+OpenStack has become the de-facto solution to operate compute, network
+and storage resources in public and private clouds. In this lab, we
+are going to:
+- Deploy and configure OpenStack using
+  [[https://github.com/BeyondTheClouds/enos][EnOS]] (Day 1).
+- Operate this OpenStack to manage IaaS resources (e.g. boot VMs --
+  Day 1/Day 2).
+- Start your OMH -- Online Mines Hosting -- company that deploys
+  Wordpress as a Service (Day 2).
+- Automatize all the stuff with the Heat template engine (i.e., manage
+  your cloud from the sofa! -- Day 2/Day 3).
+
+Find the slides of the lecture [[http://enos.irisa.fr/tp-polytech/openstack-slides.pdf][there]].
+#+END_abstract

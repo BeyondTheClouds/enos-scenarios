@@ -56,7 +56,7 @@ openstack server show os-control-compute ||\
               --network Ext-Net\
               --network provider-net\
               --key-name tp-omh\
-              --user-data ../../day2/lib/os-control-compute.sh\
+              --user-data ../../day2/lib/os-control.sh\
               --wait\
               os-control-compute
 
@@ -68,7 +68,7 @@ openstack server show os-compute ||\
               --network Ext-Net\
               --network provider-net\
               --key-name tp-omh\
-              --user-data ../../day2/lib/os-compute.sh\
+              --user-data ../../day2/lib/os-compute1.sh\
               --wait\
               os-compute
 
