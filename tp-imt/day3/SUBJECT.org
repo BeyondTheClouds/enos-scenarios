@@ -7,18 +7,21 @@
   - [[#source-of-the-lab][Source of the Lab]]
   - [[#setup][Setup]]
 - [[#heat-introduction][Heat introduction]]
+  - [[#introduction][Introduction]]
   - [[#boot-a-vm][Boot a VM]]
   - [[#need-more-flexibility-lets-add-parameters][Need more flexibility: let's add parameters!]]
   - [[#need-our-deployment-to-return-values-lets-use-outputs][Need our deployment to return values: let's use outputs!]]
   - [[#integrate-cloud-init-in-heat][Integrate ~cloud-init~ in Heat]]
-  - [[#get-a-flexible-post-installation-script-with-cloud-init-and-parameters][Get a flexible post-installation script with ~cloud-init~ and parameters]]
+  - [[#dynamic-configuration-with-cloud-init-and-parameters][Dynamic configuration with ~cloud-init~ and parameters]]
+  - [[#data-dependency-between-resources][Data dependency between resources]]
   - [[#nested-templates][Nested templates]]
-  - [[#share-information-between-nested-templates][Share information between nested templates]]
-- [[#exercise-automatic-deployment-of-wordpress-with-heat][Exercise: Automatic deployment of WordPress with Heat]]
+  - [[#nested-templates-with-data-dependency][Nested templates with data dependency]]
+- [[#automatic-deployment-of-wordpress-with-heat][Automatic deployment of WordPress with Heat]]
 - [[#the-quakejs-secret-project][The QuakeJs Secret Project]]
 - [[#appendix][Appendix]]
   - [[#reservationyaml][reservation.yaml]]
   - [[#patchgaleracnf][patch/galera.cnf]]
+  - [[#circular-dependency-in-heat][Circular dependency in Heat]]
 - [[#footnotes][Footnotes]]
 
 * Requirements and Setup
@@ -78,6 +81,7 @@ machines. Note, to execute this script you need to install
 #+INCLUDE: "lib/setup-tp-imt-ovh.sh" src bash
 
 * Heat introduction
+** Introduction
 
 In the previous sessions, we saw how to boot a VM with OpenStack, and execute a
 post-installation script using the ~user-data~ mechanism. Such mechanism can
@@ -91,418 +95,248 @@ balance the load.
 Let's take a simple example! WordPress[fn:wordpress] is a very popular content
 management system (CMS) written in PHP, which is mainly used as a blog system.
 It is composed of two elements: a Web server (Apache) and a database (MySQL).
-Apache serves the PHP code of WordPress and store its information in the
+Apache serves the PHP code of WordPress and stores its information in the
 database.
 
-Automation is a very important concept for devops. Imagine you have to deploy
-several WordPress instances in your datacenter. You don't want to deploy and
-manage it manually. That is why, we are going to use an OpenStack project to
-automate the deployment of applications: OpenStack Heat.
+Automation is a very important concept for devops. Imagine you have your own
+datacenter and want to exploit it by renting WordPress instances to your
+customers. Each time a client rents an instance, you have to manually deploy it.
+Wouldn't it more convenient to automate all the operations? :) To that end, we
+are going to use an OpenStack project to automate the deployment of
+applications: OpenStack Heat.
 
 Heat is the OpenStack orchestrator: it eats templates (called HOT for Heat
-Orchestration Template - which are files written in yaml) describing the
-OpenStack infrastructure you want to deploy (e.g. vms, network, storages) as
+Orchestration Template - which are files written in YAML) describing the
+OpenStack infrastructure you want to deploy (e.g. vms, networks, storages) as
 well as software configurations. Then the Heat engine is in charge of sending
 the appropriate requests to OpenStack to deploy the system described in your
-template.
+template (deployments are called ~stacks~ in Heat). In the following
+subsections, we are going to manipulate Heat to understand how to deploy
+applications on OpenStack. The following examples are extracted from the heat
+templates you can find under the following directory:
+~lib/heat_templates/debian/hello_world/~.
 
 ** Boot a VM
 
 The simplest HOT template your can declare describes how to boot a VM:
 
-#+BEGIN_SRC yaml
-#heat_template_version: 2017-09-01
-
-# Here we define a simple decription of the template (optional):
-description: >
-    Simply boot a VM!
-
-# Here we declare the resources to deploy:
-resources:
-    # Name of my resource:
-    my_vm:
-        type: "OS::Nova::Server"
-        properties:
-            name: hello_world
-            image: debian-9
-            flavor: m1.small
-            key_name: admin
-#+END_SRC
+#+INCLUDE: "lib/heat_templates/debian/hello_world/1_boot_vm.yaml" src yaml
 
 As depicted in this example, the different OpenStack resources can be declared
-using types. Here, the type ~OS::Nova::Server~ can be used to declare a virtual
-machine. A type defines different properties, which should be here familiar for
-you. You can now run the stack:
+using types. OpenStack resource types are listed in the
+documentation[fn:heat_resource_list], browsing this page, you can see that
+resources exist for most OpenStack services (e.g. Nova, Neutron, Glance, Cinder,
+Heat). Here, we declare a new resource called ~my_vm~ which is defined by the
+type ~OS::Nova::Server~ to declare a new virtual machine. A type defines
+different properties (some are mandatory, some are optional, see the
+documentation for more details). The ~OS::Nova::Server~ properties should be
+familiar to you since it is the classical properties Nova requires to boot a VM
+(i.e. a name, an image, a flavor, a key name). Once you have written this
+template in a file, you can now deploy the stack as following:
 
-#+BEGIN_SRC bash
-$ openstack stack create -t ./boot_vm.yml helloworld
++BEGIN_SRC bash
+$ openstack stack create -t ./1_boot_vm.yaml hw1
 $ openstack stack list
-$ openstack stack show helloworld
-$ openstack server list
-$ openstack stack delete helloworld
-#+END_SRC
+$ openstack stack show hw1
+$ watch openstack server list
+$ openstack server ssh --login debian --identity ~/admin.pem --address-type provider-net hello_world
+$ openstack stack delete hw1
++END_SRC bash
+
+This simple template is enough to run a virtual machine. However it is very
+static. In the next subsection, we are going to manipulate parameters to add
+flexibility.
 
 ** Need more flexibility: let's add parameters!
 
 Templates can be more flexible with parameters. To that end you can:
-- declare the parameters to provide to your template;
-- use the intrinsic functions ~get_param~ to fetch them in your resource
-  declarations.
+- declare a set of parameters to provide to your template;
+- use the intrinsic function ~get_param~ to map those parameters in your
+  resource declarations.
 Here's an example:
 
-#+BEGIN_SRC yaml
-heat_template_version: 2017-09-01
+#+INCLUDE: "lib/heat_templates/debian/hello_world/2_boot_vm_with_params.yaml" src yaml
 
-description: >
-    Simply boot a VM with parameters!
+In this example, we defined two parameters. While the first one related to the
+VM flavor has a default value (i.e. ~m1.small~), the second one, corresponding
+to the name of the key pair to use, must be provided. To deploy this stack, run
+the following command:
 
-# Here we define parameters
-parameters:
-    param_flavor:
-        type: string
-        description: Flavor to use for servers
-        default: m1.small
-    param_key:
-        type: string
-        description: Key name to use for servers
-        default: admin
-
-# Here we use intrinsic functions to get params
-resources:
-    my_vm:
-        type: "OS::Nova::Server"
-        properties:
-            name: hello_world
-            image: debian-9
-            flavor: { get_param: param_flavor }
-            key_name: { get_param: param_key }
-#+END_SRC
-
-Create the new stack by providing parameters :
-#+BEGIN_SRC bash
-$ openstack stack create -t ./boot_vm_with_params.yml --parameter param_flavor=m1.medium helloworld
++BEGIN_SRC bash
+$ openstack stack create -t ./2_boot_vm_with_params.yaml \
+    --parameter param_name=hello_params \
+    --parameter param_flavor=m1.medium \
+    hw2
 $ openstack server list
-$ openstack stack delete helloworld
-#+END_SRC
+$ openstack stack delete hw2
++END_SRC bash
+
+This command deploys our VM by overriding the default flavor value ~m1.small~ by
+~m1.medium~. This can be checked by typing: ~openstack server list~. The
+parameter ~param_name~ is required and no default value is provided. As such, if
+you try to create a stack without providing this parameter, you would the
+following error:
+
++BEGIN_SRC bash
+$ openstack stack create -t ./2_boot_vm_with_params.yaml \
+    --parameter param_flavor=m1.medium \
+    hw2_error
+ERROR: The Parameter (param_name) was not provided.
++END_SRC
+
+Parameters are the inputs of our templates. In the next subsection, we are going
+to see how templates can declare outputs, so that our stacks can return a set of
+attributes (e.g. the IP address of a deployed VM).
 
 ** Need our deployment to return values: let's use outputs!
 
 Templates can declare a set of attributes to return. For instance, you might
 need to know the IP address of a resource at run-time. To that end, you can
-declare outputs:
+declare attributes in a new section called ~outputs~:
 
-#+BEGIN_SRC yaml
-heat_template_version: 2017-09-01
+#+INCLUDE: "lib/heat_templates/debian/hello_world/3_boot_vm_with_output.yaml" src yaml
 
-description: >
-    Simply boot a VM and outputs its IP address!
+We declared here an output attribute called ~HOSTIP~ which stores the IP address
+of the VM resource. We used here another intrinsic function which is used to get
+the IP address from our VM: ~get_attr~. Output attributes can be exploited in
+two ways: it can be displayed from the CLI, or it can be fetched by other stack
+templates (we will see this last case latter):
 
-parameters:
-    param_flavor:
-        type: string
-        description: Flavor to use for servers
-        default: m1.small
-    param_key:
-        type: string
-        description: Key name to use for servers
-        default: admin
-
-resources:
-    my_vm:
-        type: "OS::Nova::Server"
-        properties:
-            name: hello_world
-            image: debian-9
-            flavor: { get_param: param_flavor }
-            key_name: { get_param: param_key }
-
-# We set here outputs (stack returned attributes)
-outputs:
-    HOSTIP:
-        description: IP address of the created instance
-        value: { get_attr: [my_vm, first_address] }
-#+END_SRC
-
-We used here another intrinsic function: ~get_attr~ which is used to get the IP
-address from our VM. Returned values can be displayed with the CLI or fetched
-from other templates (we will see this last case latter):
-
-#+BEGIN_SRC bash
-$ openstack stack create -t ./boot_vm_with_params.yml helloworld
-$ openstack stack output list
-$ openstack stack output show helloworld HOSTIP
-$ openstack stack delete helloworld
-#+END_SRC
++BEGIN_SRC bash
+$ openstack stack create -t ./3_boot_vm_with_output.yaml hw3
+$ openstack stack output list hw3
+$ openstack stack output show hw3 HOSTIP
+$ openstack stack delete hw3
++END_SRC
 
 ** Integrate ~cloud-init~ in Heat
 
-It is possible to declare user-data in the template:
+It is possible to declare a post-installation script in the template with
+the user-data property:
 
-#+BEGIN_SRC yaml
-heat_template_version: 2017-09-01
+#+INCLUDE: "lib/heat_templates/debian/hello_world/4_boot_vm_with_user-data.yaml" src yaml
 
-description: >
-    Simply boot a VM with a post-installation script!
++BEGIN_SRC bash
+$ openstack stack create -t ./4_boot_vm_with_user-data.yaml hw4
+$ openstack server ssh --login debian --identity ~/admin.pem --address-type provider-net hw4
+$ openstack stack delete hw4
++END_SRC
 
-resources:
-    my_vm:
-        type: "OS::Nova::Server"
-        properties:
-            name: hello_world
-            image: debian-9
-            flavor: m1.small
-            key_name: admin
-            # We set here user-data
-            user_data: |
-                #!/bin/bash
-                apt-get update
-                apt-get install -y lolcat
-#+END_SRC
+** Dynamic configuration with ~cloud-init~ and parameters
 
-** Get a flexible post-installation script with ~cloud-init~ and parameters
+Let's mix the capabilities we learned from the parameter and cloud-init
+templates to write a template with a flexible post-installation script. With
+Heat, it is possible to provide a parameter to your user-data at run-time by
+using a new function: ~str_replace~!
 
-With Heat, it is possible to provide a parameter to your user-data at run-time!
-
-#+BEGIN_SRC yaml
-heat_template_version: 2017-09-01
-
-description: >
-    Simply boot a VM and set a post-installation script with params
-
-parameters:
-    PackageName:
-        label: Name of the package to install
-        type: string
-
-resources:
-    my_vm:
-        type: "OS::Nova::Server"
-        properties:
-            name: hello_world
-            image: debian-9
-            flavor: m1.small
-            key_name: admin
-            user_data: |
-                # This intrinsic function can replace strings in user-data:
-                str_replace:
-                    # We define here the parameters for our script
-                    params:
-                        ${PACKAGE_NAME}: { get_param: PackageName}
-                    # We define here the script
-                    template: |
-                        #!/bin/bash
-                        apt-get update
-                        apt-get install -y ${PACKAGE_NAME}
-#+END_SRC
+#+INCLUDE: "lib/heat_templates/debian/hello_world/5_boot_vm_with_user-data2.yaml" src yaml
 
 We used here the new intrinsic function ~str_replace~ to replace strings in our
-user-data.
+user-data. In this example, the parameter should be a string containing a set of
+packages to install in the VM. You can deploy the stack as follow:
+
++BEGIN_SRC bash
+$ openstack stack create \
+    -t ./5_boot_vm_with_user-data2.yaml \
+    --parameter PackageName="vim cowsay fortune fortunes" \
+   hw5
++END_SRC
+
+This mechanism is crucial to dynamically configure our services during the
+deployment. For instance, Service_A might require an IP address in its
+configuration file to access Service_B, which runs on another VM. This IP
+address is only known at run-time, so it must be represented by a variable
+managed in Heat templates. In the next subsections, we are going to study how to
+declare such variable, so that Heat resources can exchange information.
+
+** Data dependency between resources
+
+Let's declare a template with two VMs: ~provider~ and ~user~. The idea is to
+configure user's static lookup table for hostnames (more information can be
+found by typing: ~man hosts~), so that user can target provider from its
+hostname rather than from its IP address. To that end, we will use the user-data
+mechanism to edit the ~/etc/hosts~ file on user, and map the IP address of
+provider with its hostname:
+
+#+INCLUDE: "lib/heat_templates/debian/hello_world/6_boot_vms_with_exchange.yaml" src yaml
+
+In this example, ~user~ requires the IP address of ~provider~ to boot. The Heat
+engine is in charge of managing dependencies between resources. Take a look
+during the deployment, and check that ~provider~ is deployed prior ~user~:
+
++BEGIN_SRC bash
+$ openstack stack create -t ./6_boot_vms_with_exchange.yaml hw6 && watch openstack server list
+$ openstack server ssh --login debian --identity ~/admin.pem --address-type provider-net user
+debian@user:~$ ping provider 
+debian@user:~$ exit
+$ openstack stack delete hw6
++END_SRC
 
 ** Nested templates
 
-It is possible to compose one logical stack with multiple templates. To that end
-we use nested templates. Here is ~boot_vm_with_params.yml~ file describing how
-to boot a VM with parameters:
+Heat is able to compose templates to keep human-readable files, using nested
+templates. For instance, we can use a first template that describes a virtual
+machine, and a second template which deploys multiple VMs by referencing the
+first one. Rather than create the first template, we can re-use
+~2_boot_vm_with_params.yaml~:
 
-#+BEGIN_SRC yaml
-heat_template_version: 2017-09-01
+#+INCLUDE: "lib/heat_templates/debian/hello_world/7_nested_template.yaml" src yaml
 
-description: >
-    Simply boot a VM with parameters!
+To compose template, a new resource can be defined by specifying its type as the
+target of the desired template. A set of properties can be provided to the
+nested template and will be interpreted as parameters.
 
-# Here we define parameters
-parameters:
-    param_name:
-        type: string
-        description: Host name
-    param_flavor:
-        type: string
-        description: Host flavor
+Nested templates are very convenient to keep your code clean and re-use
+templates. We are now reaching the last subsection, where we are going to extend
+nested templates with data dependency.
 
-# Here we use intrinsic functions to get params
-resources:
-    my_vm:
-        type: "OS::Nova::Server"
-        properties:
-            image: debian-9
-            key_name: admin
-            name: { get_param: param_name }
-            flavor: { get_param: param_flavor }
-#+END_SRC
+** Nested templates with data dependency
 
-Here's the ~boot_vms.yml~ file which use the previous one to declare multiple
-VMs:
+Let's describe the same deployment as in `Data dependency between resources` by
+using nested templates. For that we need a new template:
 
-#+BEGIN_SRC yaml
-heat_template_version: 2017-09-01
+#+INCLUDE: "lib/heat_templates/debian/hello_world/8_nested_template_boot_vm.yaml" src yaml
 
-description: >
-    Declare two VM resources based on a nested template!
+We can now declare the main template. While it defines three VMs, this template
+is easy to read since it points to the template created previously, and
+~3_boot_vm_with_output.yaml~:
 
-# Here we use intrinsic functions to get params
-resources:
-    webserver:
-        type: boot_vm_with_params.yml
-        properties:
-            param_name: webserver
-            param_flavor: m1.tiny
-    database:
-        type: boot_vm_with_params.yml
-        properties:
-            param_name: database
-            param_flavor: m1.medium
-#+END_SRC
+#+INCLUDE: "lib/heat_templates/debian/hello_world/8_nested_template_exchange.yaml" src yaml
 
-You can then start multiple VMs with:
+* Automatic deployment of WordPress with Heat
 
-#+BEGIN_SRC bash
-$ openstack stack create -t ./boot_vms.yml helloworld
-#+END_SRC
-
-** Share information between nested templates
-
-Let's declare now a template whose VM needs to determine the IP address of
-another VM at run time. Here's the content of ~./boot_vm_need_ip.yml~:
-
-#+BEGIN_SRC yaml
-heat_template_version: 2017-09-01
-
-description: >
-    Simply boot a VM but requires the remote host IP address!
-
-parameters:
-    IPAddress:
-        label: IPAddress of the remote host
-        type: string
-
-resources:
-    my_vm:
-        type: "OS::Nova::Server"
-        properties:
-            name: hello_world
-            image: debian-9
-            flavor: m1.small
-            key_name: admin
-            user_data: |
-                # This intrinsic function can replace strings in user-data:
-                str_replace:
-                    # We define here the parameters for our script
-                    params:
-                        ${IP_ADDRESS}: { get_param: IPAdress}
-                    # We define here the script
-                    template: |
-                        #!/bin/bash
-                        echo "${IP_ADDRESS} remote_host" > /etc/hosts
-#+END_SRC
-
-The attribute of the IP address can be fetched with the ~get_attr~ intrinsic function:
-
-#+BEGIN_SRC yaml
-heat_template_version: 2017-09-01
-
-description: >
-    Declare two VM resources based on a nested template!
-
-# Here we use intrinsic functions to get params
-resources:
-    webserver:
-        type: ./boot_vm_need_ip.yml
-        properties:
-            IPAdress: { get_attr: [database, HOSTIP] }
-    database:
-        type: ./boot_vm_with_params.yml
-        properties:
-            param_name: database
-            param_flavor: m1.medium
-#+END_SRC
-
-* Exercise: Automatic deployment of WordPress with Heat
-
-You now have to use what you learned from the previous section to deploy a
+As a DevOps at OMH, you are now in charge of the automation process of deploying
+WordPress instances for clients. Congratulation! To that end, you have to use
+what you learned from the previous section to design a template that describes a
 WordPress application using Heat. We are going to deploy WordPress inside two
-VMs: the first one holding the web server, the second one running the database:
+VMs: the first one holds the web server, the second one runs the database:
 
 - VM1: Apache + PHP + WordPress code
 - VM2: MySQL
 
-To that end you must create three HOT files:
+It is highly recommended that you create three HOT files:
 
-- mysql.yml: containing the description of the VM running MySQL;
-- web_server.yml: containing the description of the VM running the Web server;
+- sql_vm.yml: containing the description of the VM running MySQL;
+- web_vm.yml: containing the description of the VM running the Web server;
 - wp_app.yml: containing the description of the WordPress application
-  (~mysql.yml~ + ~web_server.yml~ as nested templates).
+  (~sql_vm.yml~ + ~web_vm.yml~ as nested templates).
 
-To help you, we provide the post-installation script needed for both services.
-You should read them to understand what they do. The first one is for the
+To help you, we provide the post-installation script for both VMs. You should
+read them to understand what they do. Here's the first one is related to the
 database:
 
-#+BEGIN_SRC bash
-#!/usr/bin/env bash
-# Install and configure MariaDB for Debian 9.
-
-# Install MariaDB
-apt update -q
-apt install -q -y mariadb-server mariadb-client
-
-# Next line stops mysql install from popping up request for root password
-export DEBIAN_FRONTEND=noninteractive
-sed -i 's/127.0.0.1/0.0.0.0/' /etc/mysql/mariadb.conf.d/50-server.cnf
-systemctl restart mysql
-
-# Setup MySQL root password and create a user and add remote privs to app subnet
-mysqladmin -u root password ${DB_ROOTPASSWORD}
-
-# Create the wordpress database
-cat << EOSQL | mysql -u root --password=${DB_ROOTPASSWORD}
-FLUSH PRIVILEGES;
-CREATE USER '${DB_USER}'@'localhost';
-CREATE DATABASE ${DB_NAME};
-SET PASSWORD FOR '${DB_USER}'@'localhost'=PASSWORD("${DB_PASSWORD}");
-GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'localhost' IDENTIFIED BY '${DB_PASSWORD}';
-CREATE USER '${DB_USER}'@'%';
-SET PASSWORD FOR '${DB_USER}'@'%'=PASSWORD("${DB_PASSWORD}");
-GRANT ALL PRIVILEGES ON ${DB_NAME}.* TO '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASSWORD}';
-EOSQL
-#+END_SRC
+#+INCLUDE: "lib/mariadb.sh" src yaml
 
 Here's the one for the web server:
 
-#+BEGIN_SRC bash
-#!/usr/bin/env bash
-# Install and configure Apache to serve Wordpress for Debian 9.
+#+INCLUDE: "lib/apache2.sh" src yaml
 
-apt-get update -y
-apt-get upgrade -y
-apt-get install -q -y --force-yes wordpress apache2 curl
+Once it is deployed, you should be able to reach the wordpress service by
+typing:
 
-cat << EOF > /etc/apache2/sites-available/wp.conf
-Alias /wp/wp-content /var/lib/wordpress/wp-content
-Alias /wp /usr/share/wordpress
-<Directory /usr/share/wordpress>
-    Options FollowSymLinks
-    AllowOverride Limit Options FileInfo
-    DirectoryIndex index.php
-    Require all granted
-</Directory>
-<Directory /var/lib/wordpress/wp-content>
-    Options FollowSymLinks
-    Require all granted
-</Directory>
-EOF
-
-a2ensite wp
-service apache2 reload
-
-cat << EOF > /etc/wordpress/config-default.php
-<?php
-define('DB_NAME', '${DB_NAME}');
-define('DB_USER', '${DB_USER}');
-define('DB_PASSWORD', '${DB_PASSWORD}');
-define('DB_HOST', '${DB_HOST}');
-define('WP_CONTENT_DIR', '/var/lib/wordpress/wp-content');
-?>
-EOF
-#+END_SRC
++BEGIN_SRC bash
+$ lynx <web_server_ip_address>/wp
++END_SRC
 
 * The QuakeJs Secret Project
 See http://www.quakejs.com/
@@ -548,6 +382,13 @@ Perform a live migration of the game server
 ** patch/galera.cnf
 #+INCLUDE: "lib/patch/galera.cnf" src bash
 
+** Circular dependency in Heat
+
+The Heat engine is in charge of managing dependencies between the declared
+resource. However, it is not able to deploy a stack with circular dependencies.
+The following example leads to such a situation:
+
+#+INCLUDE: "lib/heat_templates/debian/hello_world/9_circular_dependency.yaml" src yaml
 
 * Footnotes
 
@@ -579,6 +420,7 @@ Perform a live migration of the game server
 [fn:dvr] https://wiki.openstack.org/wiki/Neutron/DVR
 [fn:wordpress] https://wordpress.org/
 [fn:heat] https://wiki.openstack.org/wiki/Heat
+[fn:heat_resource_list] https://docs.openstack.org/heat/pike/template_guide/openstack.html
 
 # Local Variables:
 # org-html-postamble: "<p class=\"author\">Author: %a</p>
