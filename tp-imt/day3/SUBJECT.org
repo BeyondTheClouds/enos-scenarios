@@ -134,14 +134,14 @@ familiar to you since it is the classical properties Nova requires to boot a VM
 (i.e. a name, an image, a flavor, a key name). Once you have written this
 template in a file, you can now deploy the stack as following:
 
-+BEGIN_SRC bash
+#+BEGIN_SRC bash
 $ openstack stack create -t ./1_boot_vm.yaml hw1
 $ openstack stack list
 $ openstack stack show hw1
 $ watch openstack server list
 $ openstack server ssh --login debian --identity ~/admin.pem --address-type provider-net hello_world
 $ openstack stack delete hw1
-+END_SRC bash
+#+END_SRC
 
 This simple template is enough to run a virtual machine. However it is very
 static. In the next subsection, we are going to manipulate parameters to add
@@ -162,14 +162,14 @@ VM flavor has a default value (i.e. ~m1.small~), the second one, corresponding
 to the name of the key pair to use, must be provided. To deploy this stack, run
 the following command:
 
-+BEGIN_SRC bash
+#+BEGIN_SRC bash
 $ openstack stack create -t ./2_boot_vm_with_params.yaml \
     --parameter param_name=hello_params \
     --parameter param_flavor=m1.medium \
     hw2
 $ openstack server list
 $ openstack stack delete hw2
-+END_SRC bash
+#+END_SRC
 
 This command deploys our VM by overriding the default flavor value ~m1.small~ by
 ~m1.medium~. This can be checked by typing: ~openstack server list~. The
@@ -177,12 +177,12 @@ parameter ~param_name~ is required and no default value is provided. As such, if
 you try to create a stack without providing this parameter, you would the
 following error:
 
-+BEGIN_SRC bash
+#+BEGIN_SRC bash
 $ openstack stack create -t ./2_boot_vm_with_params.yaml \
     --parameter param_flavor=m1.medium \
     hw2_error
 ERROR: The Parameter (param_name) was not provided.
-+END_SRC
+#+END_SRC
 
 Parameters are the inputs of our templates. In the next subsection, we are going
 to see how templates can declare outputs, so that our stacks can return a set of
@@ -202,12 +202,12 @@ the IP address from our VM: ~get_attr~. Output attributes can be exploited in
 two ways: it can be displayed from the CLI, or it can be fetched by other stack
 templates (we will see this last case latter):
 
-+BEGIN_SRC bash
+#+BEGIN_SRC bash
 $ openstack stack create -t ./3_boot_vm_with_output.yaml hw3
 $ openstack stack output list hw3
 $ openstack stack output show hw3 HOSTIP
 $ openstack stack delete hw3
-+END_SRC
+#+END_SRC
 
 ** Integrate ~cloud-init~ in Heat
 
@@ -216,11 +216,11 @@ the user-data property:
 
 #+INCLUDE: "lib/heat_templates/debian/hello_world/4_boot_vm_with_user-data.yaml" src yaml
 
-+BEGIN_SRC bash
+#+BEGIN_SRC bash
 $ openstack stack create -t ./4_boot_vm_with_user-data.yaml hw4
 $ openstack server ssh --login debian --identity ~/admin.pem --address-type provider-net hw4
 $ openstack stack delete hw4
-+END_SRC
+#+END_SRC
 
 ** Dynamic configuration with ~cloud-init~ and parameters
 
@@ -235,12 +235,12 @@ We used here the new intrinsic function ~str_replace~ to replace strings in our
 user-data. In this example, the parameter should be a string containing a set of
 packages to install in the VM. You can deploy the stack as follow:
 
-+BEGIN_SRC bash
+#+BEGIN_SRC bash
 $ openstack stack create \
     -t ./5_boot_vm_with_user-data2.yaml \
     --parameter PackageName="vim cowsay fortune fortunes" \
    hw5
-+END_SRC
+#+END_SRC
 
 This mechanism is crucial to dynamically configure our services during the
 deployment. For instance, Service_A might require an IP address in its
@@ -264,13 +264,13 @@ In this example, ~user~ requires the IP address of ~provider~ to boot. The Heat
 engine is in charge of managing dependencies between resources. Take a look
 during the deployment, and check that ~provider~ is deployed prior ~user~:
 
-+BEGIN_SRC bash
+#+BEGIN_SRC bash
 $ openstack stack create -t ./6_boot_vms_with_exchange.yaml hw6 && watch openstack server list
 $ openstack server ssh --login debian --identity ~/admin.pem --address-type provider-net user
-debian@user:~$ ping provider 
+debian@user:~$ ping provider
 debian@user:~$ exit
 $ openstack stack delete hw6
-+END_SRC
+#+END_SRC
 
 ** Nested templates
 
@@ -316,9 +316,9 @@ VMs: the first one holds the web server, the second one runs the database:
 
 It is highly recommended that you create three HOT files:
 
-- sql_vm.yml: containing the description of the VM running MySQL;
-- web_vm.yml: containing the description of the VM running the Web server;
-- wp_app.yml: containing the description of the WordPress application
+- ~sql_vm.yml~: containing the description of the VM running MySQL;
+- ~web_vm.yml~: containing the description of the VM running the Web server;
+- ~wp_app.yml~: containing the description of the WordPress application
   (~sql_vm.yml~ + ~web_vm.yml~ as nested templates).
 
 To help you, we provide the post-installation script for both VMs. You should
@@ -334,9 +334,9 @@ Here's the one for the web server:
 Once it is deployed, you should be able to reach the wordpress service by
 typing:
 
-+BEGIN_SRC bash
+#+BEGIN_SRC bash
 $ lynx <web_server_ip_address>/wp
-+END_SRC
+#+END_SRC
 
 * The QuakeJs Secret Project
 See http://www.quakejs.com/
