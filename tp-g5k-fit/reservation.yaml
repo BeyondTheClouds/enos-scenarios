@@ -13,6 +13,8 @@ provider:
   # when nodes are missing in the reservation
   # or not deployed
   role_distribution: debug
+  env_name: debian9-x64-enos
+  user: discovery
 
 # Resources description
 resources:
