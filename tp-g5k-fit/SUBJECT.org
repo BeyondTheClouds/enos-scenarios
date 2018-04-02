@@ -84,7 +84,7 @@ To follow the lab you'll need :
 
 ** OpenStack
 OpenStack is the de-facto solution to manage infrastructures (i.e. compute,
-network, storage resources). To that end, it provide management mechanisms as a
+network, storage resources). To that end, it provides management mechanisms as a
 modular platform composed of several projects, each of which is in charge of an
 aspect of the infrastructure management. Among the various projects (30+), here
 is a selection corresponding to the bare necessities to operate infrastructure:
