@@ -445,6 +445,16 @@ user@enos-node:~/enos$ openstack server create\
 : (venv) user@enos-node~/enos$ network_node=$(enos info --out json | jq -r '.rsc.network[0].address')
 : (venv) user@enos-node~/enos$ compute_node=$(enos info --out json | jq -r '.rsc.compute[0].address')
 
+#+BEGIN_NOTE
+This exercice has been designed to *run on a cluster where nodes have
+two network interfaces*. *If you plan to run the execice on a cluster
+with single network interface, please run the following script on the
+network node.* You can check how many network interfaces are
+associated to a cluster by consulting the
+[[https://www.grid5000.fr/mediawiki/images/G5k_cheat_sheet.pdf][Grid'5000
+Cheatsheet]]
+#+END_NOTE
+
 #+BEGIN_EXAMPLE
 #!/usr/bin/env bash
 
