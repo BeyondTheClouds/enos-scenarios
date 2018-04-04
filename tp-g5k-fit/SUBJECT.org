@@ -42,6 +42,7 @@ To that end, we will:
 - See how EnOS can be used to customize OpenStack (enable/disable features);
 - Benchmark the deployed OpenStack and backup metrics;
 - Analyze the collected metrics to highlight the impact of th feature.
+
 #+END_abstract
 
 #+TOC: headlines 3
@@ -80,6 +81,11 @@ To follow the lab you'll need :
   + Check your configuration by typing ~ssh rennes.g5k~ for instance
 
 * Presentation
+
+Adrien Lebre gave a lecture regarding Cloud Computing, OpenStack and EnOS. You
+can find the slides of this lecture [[http://enos.irisa.fr/tp-polytech/openstack-slides.pdf][here]]. In the following, we quickly present
+some information regarding OpenStack, EnOS and the lab we are going to set
+today.
 
 ** OpenStack
 OpenStack is the de-facto solution to manage infrastructures (i.e. compute,
@@ -182,26 +188,30 @@ users that are logged to the frontend node, since it has limited resources.
 * Set the EnOS-node and install EnOS
 Get a new machine on G5K:
 #+BEGIN_EXAMPLE
-flyon:~$ oarsub -I -l "nodes=1,walltime=4:00:00" -p "cluster='taurus'"
+fnantes:~$ oarsub -I -l "nodes=1,walltime=4:00:00" -p "cluster='econome"
 #+END_EXAMPLE
 
 Download EnOS in your working directory, and install it:
 #+BEGIN_EXAMPLE
-user@taurus-13:~# git clone https://github.com/BeyondTheClouds/enos.git -b stable/pike
-user@taurus-13:~# cd enos
-user@taurus-13:~/enos#: virtualenv --python=python2 venv
-user@taurus-13:~/enos#: source venv/bin/activate
-(venv) user@taurus-13:~/enos# pip install -e .
+user@enos-node:~$ git clone https://github.com/dpertin/enos.git -b stable/pike
+user@enos-node:~$ cd enos
+user@enos-node:~/enos$: virtualenv --python=python2 venv
+user@enos-node:~/enos$: source venv/bin/activate
+(venv) user@enos-node:~/enos$ pip install -e .
 #+END_EXAMPLE
 
 #+BEGIN_NOTE
-The G5K environment contains EnOS together with all resources needed by EnOS to
-run OpenStack (included all the Docker container images). The result is
-relatively huge, but it contains everything you need to run EnOS almost offline.
+We install EnOS inside a virtualenv to avoid any conflict regarding the version
+of its dependencies. Furthermore, it does not install anything outside the
+virtual environment which keeps your OS clean. Remember that you have to be in
+the virtual environment to use EnOS. If you open a new terminal on ~enos-node~,
+type the following:
+: user@enos-node:~$ cd ~/enos; source venv/bin/activate;
 #+END_NOTE
 
+Check if enos works:
 #+BEGIN_EXAMPLE
-(venv) user@taurus-13:~/enos# enos --help
+(venv) user@enos-node:~/enos$ enos --help
 Enos: Monitor and test your OpenStack.
 
 usage: enos <command> [<args> ...] [-e ENV|--env=ENV]
@@ -249,7 +259,7 @@ and run performance analysis.
 The description of the configuration is done in a ~reservation.yaml~ file. You
 can generate a default one by typing:
 
-: (venv) user@taurus-13:~/enos# enos new > reservation.yaml
+: (venv) user@enos-node:~/enos# enos new > reservation.yaml
 
 In the following, we are going to study the different part of this configuration
 file.
@@ -282,7 +292,7 @@ provider:
   walltime: '02:00:00'
   # mandatory : you need to have exacly one vlan
   vlans:
-     rennes: "{type='kavlan'}/vlan=1"
+     nantes: "{type='kavlan'}/vlan=1"
   # Be less strict on node distribution especially
   # when nodes are missing in the reservation
   # or not deployed
@@ -299,6 +309,15 @@ In particular, pay attention to 2 elements you might need to adapt here:
    experiment. In our example, we reserve a VLAN from the /rennes/ site. Adapt
    the related value regarding the G5K site you plan to use.
 
+#+BEGIN_NOTE
+In a classic deployment, all the container images are downloaded and
+decompressed by Docker during the deployment process. This has a significant
+impact on the time required to deploy OpenStack. In this lab, to boost the
+deployment process, we use the G5K environment ~debian9-x64-enos-nfs~, which
+contains all resources needed by EnOS to run OpenStack (included all the Docker
+container images).
+#+END_NOTE
+
 *** Resources description
 The description of the desired resources is declared in the ~reservation.yaml~
 file, under the ~resources~ key. Here we declare the G5K cluster we target, as
@@ -309,7 +328,7 @@ well as the resources we want to deploy:
 #+BEGIN_SRC yaml
 # Resources description
 resources:
-  paravance:
+  econome:
     control: 1
     compute: 1
     network: 1
@@ -350,17 +369,18 @@ with:
 
 ** Play with OpenStack
 The last service deployed is the OpenStack dashboard (Horizon). Once the
-deployment process is finished, Horizon is reachable from G5K. To access Horizon
-from your own web browser (from your laptop), you need to create an SSH tunnel
-from your laptop to the control node, located in G5K. To that end, your need
-first to find out the the control node address, and then create the tunnel. Open n a
-new terminal and type the following:
+deployment process is finished, Horizon is reachable from G5K. More precisely,
+Horizon runs in a Docker container on the control node, listening on port 80. To
+access Horizon from your own web browser (from your laptop), you need to create
+an SSH tunnel from your laptop to the control node, located in G5K. To that end,
+your need first to find out the the control node address, and then create the
+tunnel. Open a new terminal and type the following:
 1. Find the control node address using EnOS:
-: (venv) user@frennes~/enos$ enos info
-: (venv) user@frennes~/enos$ enos info --out json | jq -r '.rsc.control[0].address'
+: (venv) user@enos-node~/enos$ enos info
+: (venv) user@enos-node~/enos$ enos info --out json | jq -r '.rsc.control[0].address'
 2. Create the tunnel from your laptop:
 : user@laptop~$ ssh -NL 8000:<g5k_control_node>:80 <g5k_site>.g5k
-: user@laptop~$ ssh -NL 8000:sagittaire-44-kavlan-4.lyon.grid5000.fr:80 nancy.g5k -v
+: user@laptop~$ ssh -NL 8000:econome-14-kavlan-4.nantes.grid5000.fr:80 nantes.g5k
 
 Once it is done, you can access Horizon from your web browser through
 http://localhost:8000 with the following credentials:
@@ -380,7 +400,6 @@ each possibility. When the configuration is OK, the ~Launch Instance~
 button should be enabled. After clicking on it, you should see the
 instance in the ~Active~ state in less than a minute.
 
-% This is not working through the tunnel:
 Now, you have several options to connect to your freshly deployed VM.
 For instance, by clicking on its name Horizon provides a virtual
 console under the tab ~Console~. Use the following credentials to
@@ -390,7 +409,7 @@ access the VM:
 
 While Horizon is helpful to discover OpenStack features, this is not
 how a true operator administrates OpenStack. A true operator prefers
-command line interface 😄.
+command line interface.
 
 *** Unleash the Operator in You
 OpenStack provides a command line interface to operate your Cloud. But
@@ -446,13 +465,11 @@ user@enos-node:~/enos$ openstack server create\
 : (venv) user@enos-node~/enos$ compute_node=$(enos info --out json | jq -r '.rsc.compute[0].address')
 
 #+BEGIN_NOTE
-This exercice has been designed to *run on a cluster where nodes have
-two network interfaces*. *If you plan to run the execice on a cluster
-with single network interface, please run the following script on the
-network node.* You can check how many network interfaces are
-associated to a cluster by consulting the
-[[https://www.grid5000.fr/mediawiki/images/G5k_cheat_sheet.pdf][Grid'5000
-Cheatsheet]]
+This exercice has been designed to *run on a cluster where nodes have two
+network interfaces*. *If you plan to run the execice on a cluster with a single
+network interface, please run the following script on the network node.* You can
+check how many network interfaces are associated to a cluster by consulting the
+[[https://www.grid5000.fr/mediawiki/images/G5k_cheat_sheet.pdf][Grid'5000 Cheatsheet]]
 #+END_NOTE
 
 #+BEGIN_EXAMPLE
@@ -497,7 +514,6 @@ user@enos-node:~/enos$ openstack server add floating ip\
 
 Then, ask for the status of your VM and its IPs with:
 : user@enos-node:~/enos$ openstack server show cli-vm -c status -c addresses
-
 
 When the state is ~ACTIVE~ wait one minute or two, the time for the VM
 to boot. Then you can ping it on its floating IP and SSH on it:
@@ -553,7 +569,7 @@ Web metrics dashboard. A Docker container is in charge of providing this service
 inside the ~control~ node. As a consequence, prior being able to reachable from
 your browser, you need to set a tunnel to this service, by typing:
 : user@laptop~$ ssh -NL 3000:<g5k_control_node>:3000 <g5k_site>.g5k
-: user@laptop~$ ssh -NL 3000:sagittaire-44-kavlan-4.lyon.grid5000.fr:3000 nancy.g5k
+: user@laptop~$ ssh -NL 3000:econome-14-kavlan-4.nantes.grid5000.fr:3000 nantes.g5k
 You can then access Grafana at http://localhost:3000 with the following
 credentials:
 - login: ~admin~
@@ -633,15 +649,11 @@ rally:                                   (ref:rally)
         args:                            (ref:scn-arg)
           sla_max_avg_duration: 30
 shaker:
-  enabled: no                            (ref:disabled)
+  enabled: yes                            (ref:disabled)
   scenarios:
     - name: OpenStack L3 East-West UDP
       file: openstack/udp_l3_east_west
 #+END_SRC
-
-#+BEGIN_NOTE
-Note that Shaker workload is [[(disabled)][disabled for now.
-#+END_NOTE
 
 Rally and Shaker provide a huge list of scenarios on their respective
 GitHub[fn:rally-scenarios][fn:shaker-scenarios]. Before going further, go
@@ -676,13 +688,11 @@ EnOS allows to enforce network emulation in terms of latency, bandwidth
 limitation and packet loss.
 
 ** Define Network Constraints
-Network constraints (latency/bandwidth limitations) are enabled by the
-use of groups of nodes. Resources must be described using a ~topology~
-description instead of a ~resources~ description. For instance,
-listings [[lst:topos-g5k]] and [[lst:topos-vgt]] define three groups named
-grp1, grp2 and grp3.
+Network constraints (latency/bandwidth limitations) are enabled by the use of
+groups of nodes. Resources must be described using a ~topology~ description
+instead of a ~resources~ description. For instance, listings [[lst:topos-g5k]]
+defines three groups named grp1, grp2 and grp3.
 
-@@html:<div style='display:flex'>@@
 #+ATTR_HTML: style="float:right;margin:0px 0px 20px 20px;"
 #+CAPTION: Description of a topology for Grid'5000.
 #+NAME: lst:topos-g5k

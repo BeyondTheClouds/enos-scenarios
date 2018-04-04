@@ -8,7 +8,7 @@ provider:
   walltime: '02:00:00'
   # mandatory : you need to have exacly one vlan
   vlans:
-     rennes: "{type='kavlan'}/vlan=1"
+     nantes: "{type='kavlan'}/vlan=1"
   # Be less strict on node distribution especially
   # when nodes are missing in the reservation
   # or not deployed
@@ -17,7 +17,7 @@ provider:
 
 # Resources description
 resources:
-  paravance:
+  econome:
     control: 1
     compute: 1
     network: 1
