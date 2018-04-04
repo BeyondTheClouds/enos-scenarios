@@ -1,19 +1,4 @@
-#+TITLE: Benchmarking OpenStack with EnOS
-#+SUBTITLE: Grid'5000-FIT School 2018
-#+AUTHOR: Ronan-Alexandre Cherrueau, Dimitri Pertin, Matthieu Simonin, Jonathan Pastor, Didier Iscovery
-#+EMAIL: {firstname.lastname}@inria.fr
-#+DATE: <2018-04-04>
-
-#+LANGUAGE: en
-#+OPTIONS: ':t
-#+OPTIONS: email:t
-#+OPTIONS: toc:nil
-
-#+MACRO: eg /e.g./,
-#+MACRO: ie /i.e./,
-#+MACRO: i18n /$1/ (en anglais, $2)
-
-#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="timeline.css"/>
+#+INCLUDE: ./header.org
 
 #+BEGIN_abstract
 OpenStack[fn:openstack] has become the de-facto solution to operate compute,
@@ -81,7 +66,6 @@ To follow the lab you'll need :
   + Check your configuration by typing ~ssh rennes.g5k~ for instance
 
 * Presentation
-
 #+BEGIN_NOTE
 Since OpenStack deployment can be quite long (~20, 30 minutes) you might be
 interested in starting its deployment before reading the presentation of
@@ -154,7 +138,7 @@ EnOS' workflow is the following:
 ** Topology deployed in this lab 
 The lab makes use of EnOS to deploy OpenStack on Grid'5000. In particular, we
 will need four G5K machines for our deployment:
-1. a machine to run EnOS;
+1. a machine to run EnOS, we call ~enos-node~ in the rest of the document;
 2. a control node: hosts the control modules, projects' APIs and databases;
 3. a network node: hosts network agents;
 4. a compute node: manages the compute modules where guest VMs live.
@@ -715,6 +699,12 @@ If you look carefully, you will see that execution of Nova boot and
 list fails because of a SLA violation. You can try to customize
 listing [[lst:run]] to make the test pass.
 
+#+BEGIN_NOTE
+For those interested in playing with deploying applications on top of OpenStack,
+you can jump to another workshop involving Heat: the OpenStack Orchestration
+service [[http://enos.irisa.fr/tp-g5k/HEAT-SUBJECT.html][here]].
+#+END_NOTE
+
 * Add Traffic Shaping
 EnOS allows to enforce network emulation in terms of latency, bandwidth
 limitation and packet loss.
@@ -734,7 +724,7 @@ topology:
     econome:
       control: 1
       network: 1
-  grp[2-3]:
+  grp2:
     econome:
       compute: 1
 #+END_SRC
@@ -749,29 +739,25 @@ network_constraints:
   default_loss: 0.1%
   constraints:
     - src: grp1
-      dst: grp[2-3]
+      dst: grp2
       delay: 50ms
       rate: 1gbit
       loss: 0%
       symetric: true
 #+END_SRC
 
-And enforce these constraints with ~enos tc~, which results in:
+Since our topology is now defined by groups, we need to run ~enos deploy~ first
+(which should be faster than the first time), then, enforce these constraints
+with ~enos tc~, which results in:
 - Network delay between machines of ~grp1~ and the machines of the
   other groups is 100ms (2x50ms: symmetric).
 - Bandwidth between machines of ~grp1~ and the machines of the other
   groups is 1 Gbit/s.
 - Packet loss percentage between machines of ~grp1~ and the machines
   of the other groups is 0%.
-- Network delay between machines of ~grp2~ and ~grp3~ is 50ms.
-- Bandwidth between machines of ~grp2~ and ~grp3~ is 100Mbit/s.
-- Packet loss percentage between machines of ~grp2~ and ~grp3~ is
-  0.1%.
-
-#+BEGIN_NOTE
-To call ~enos tc~, resources must be available, thus ~enos deploy~
-must have been called before.
-#+END_NOTE
+- Default network delay is 50ms.
+- Default bandwidth is 100Mbit/s.
+- Default packet loss percentage is 0.1%.
 
 *** Checking the constraints
 Invoking ~enos tc --test~ generates various reports to validate the
@@ -795,7 +781,7 @@ agent directly on compute of ~grp2~ and ~grp3~. With EnOS, you should
 do so by updating the ~reservation.yaml~ and add ~enable_dvr: "yes"~
 under the ~kolla~ key. Then call the following line to tell EnOS to
 reconfigure Neutron:
-: enos os --tags=neutron --reconfigure
+: user@enos-node:~/enos$ enos os --tags=neutron --reconfigure
 
 Finally, re-execute the ~dense_l3_east_west~ scenario and compare your
 result with previous one. You will see that you no more pay the cost
