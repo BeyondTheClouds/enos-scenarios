@@ -82,6 +82,12 @@ To follow the lab you'll need :
 
 * Presentation
 
+#+BEGIN_NOTE
+Since OpenStack deployment can be quite long (~20, 30 minutes) you might be
+interested in starting its deployment before reading the presentation of
+OpenStack and EnOS (you can jump to [[sec:enos][this part]] and come back later).
+#+END_NOTE
+
 Adrien Lebre gave a lecture regarding Cloud Computing, OpenStack and EnOS. You
 can find the slides of this lecture [[http://enos.irisa.fr/tp-polytech/openstack-slides.pdf][here]]. In the following, we quickly present
 some information regarding OpenStack, EnOS and the lab we are going to set
@@ -186,12 +192,38 @@ users that are logged to the frontend node, since it has limited resources.
 #+END_NOTE
 
 * Set the EnOS-node and install EnOS
-Get a new machine on G5K:
+  <<sec:enos>>
+
+The first step is to determine on which cluster you will deploy OpenStack. To
+that end, you can run ~funk~ (Find yoUr Nodes on g5K) from any frontend to see
+the availability on G5K:
+
 #+BEGIN_EXAMPLE
+user@laptop~$ ssh rennes.g5k
+frennes:~$ funk -w 4:00:00
+#+END_EXAMPLE
+
+In this example, we check the availability of G5K's clusters for the next four
+hours. Check a cluster with at least four nodes available before going further.
+Once it is done, reach the cluster's site first, and then, get a new machine
+which we will use as our EnOS node (enos-node):
+#+BEGIN_EXAMPLE
+frennes:~$ ssh nantes
 fnantes:~$ oarsub -I -l "nodes=1,walltime=4:00:00" -p "cluster='econome"
 #+END_EXAMPLE
 
+In this example, we get a new machine in interactive mode (i.e. "-I") for the
+next four hours from the ~econome~ cluster. If it succeeds you should be
+directly connected to this node (check your prompt).
+
+#+BEGIN_NOTE
+Before going further, you might be interested in using ~tmux~ in order to be
+resilient to any failure during your ssh session. Simple run ~tmux~ from the
+frontend, then you can reach this /tmux session/ at anytime by running ~tmux a~.
+#+END_NOTE
+
 Download EnOS in your working directory, and install it:
+
 #+BEGIN_EXAMPLE
 user@enos-node:~$ git clone https://github.com/dpertin/enos.git -b stable/pike
 user@enos-node:~$ cd enos
@@ -209,7 +241,7 @@ type the following:
 : user@enos-node:~$ cd ~/enos; source venv/bin/activate;
 #+END_NOTE
 
-Check if enos works:
+Check if EnOS works:
 #+BEGIN_EXAMPLE
 (venv) user@enos-node:~/enos$ enos --help
 Enos: Monitor and test your OpenStack.
@@ -334,7 +366,7 @@ resources:
     network: 1
 #+END_SRC
 
-In this example, we declare 3 machines on the ~paravance~ cluster (which is
+In this example, we declare 3 machines on the ~econome~ cluster (which is
 located in rennes): a ~control~ node, a ~compute~ node and a ~network~ node on
 which will be deployed all the required OpenStack services as depicted at the
 end of the presentation.
@@ -699,11 +731,11 @@ defines three groups named grp1, grp2 and grp3.
 #+BEGIN_SRC yaml
 topology:
   grp1:
-    paravance:
+    econome:
       control: 1
       network: 1
   grp[2-3]:
-    paravance:
+    econome:
       compute: 1
 #+END_SRC
 
