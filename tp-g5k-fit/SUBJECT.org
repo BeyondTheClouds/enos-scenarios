@@ -209,7 +209,7 @@ Once it is done, reach the cluster's site first, and then, get a new machine
 which we will use as our EnOS node (enos-node):
 #+BEGIN_EXAMPLE
 frennes:~$ ssh nantes
-fnantes:~$ oarsub -I -l "nodes=1,walltime=4:00:00" -p "cluster='econome"
+fnantes:~$ oarsub -I -l "nodes=1,walltime=4:00:00" -p "cluster='econome'"
 #+END_EXAMPLE
 
 In this example, we get a new machine in interactive mode (i.e. "-I") for the
