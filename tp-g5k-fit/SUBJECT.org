@@ -609,11 +609,11 @@ credentials:
 
 The Grafana dashboard is highly customizable. For the sake of simplicity, we
 propose to use our configuration file that you can get with:
-: user@laptop:~$ curl http://enos.irisa.fr/vagrant-box/grafana_dashboard_rescom2017.json -O
+: user@laptop:~$ curl  http://enos.irisa.fr/tp-g5k/grafana_dashboard.json -O /tmp/
 
 You have then to import this file into Grafana. First, click on the
 ~Grafana logo > Dashboard > Import > Upload .json file~ and select the
-=~/rescom17-enos/grafana_dashboard_rescom2017.json= file. Next, make
+=/tmp/grafana_dashboard.json= file. Next, make
 names of the right column matching names of the left column by
 selecting the good item in the list. And finish by clicking on ~Save &
 Open~. This opens the dashboard with several measures on Nova,
