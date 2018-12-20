@@ -34,8 +34,9 @@ See https://orgmode.org/worg/org-tutorials/org-publish-html-tutorial.html#org412
 #                                                  :recursive t
 #                                                  :publishing-function org-html-publish-to-html
 #                                                  :headline-levels 4
-#                                                  :html-link-home "index.html"
-#                                                  :html-link-up "../index.html"
+#                                                  :html-link-home "http://enos.irisa.fr/tp-imt/index.html"
+#                                                  ;; :html-link-up "../index.html"
+#                                                  :html-link-up "http://enos.irisa.fr/tp-imt/index.html"
 #                                                  :auto-preamble t)
 #                                     ("tp-static" :base-directory ,this-dir
 #                                                  :publishing-directory ,html-dir

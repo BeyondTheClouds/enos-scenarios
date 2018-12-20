@@ -14,6 +14,9 @@
 #+MACRO: ie /i.e./,
 #+MACRO: i18n /$1/ (en anglais, $2)
 
+#+LINK_UP: http://enos.irisa.fr/tp-imt/index.html
+#+LINK_HOME: http://enos.irisa.fr/tp-imt/index.html
+
 #+BEGIN_abstract
 OpenStack has become the de-facto solution to operate compute, network
 and storage resources in public and private clouds. In this lab, we
